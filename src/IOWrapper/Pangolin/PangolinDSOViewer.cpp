@@ -421,12 +421,13 @@ void PangolinDSOViewer::drawConstraints()
 		glLineWidth(3);
 
 		glBegin(GL_LINE_STRIP);
-// 		for(unsigned int i=0;i<gt_pose.size();i++)
-// 		{
-// 			glVertex3f((float)(gt_pose[i].translation()[0]),
-// 					(float)(gt_pose[i].translation()[1]),
-// 					(float)(gt_pose[i].translation()[2]));
-// 		}
+		for(unsigned int i=0;i<gt_pose.size();i++)
+		{
+			if(gt_time_stamp[i]>run_time)break;
+			glVertex3f((float)(gt_pose[i].translation()[0]),
+					(float)(gt_pose[i].translation()[1]),
+					(float)(gt_pose[i].translation()[2]));
+		}
 		glEnd();
 	}
 }
@@ -512,7 +513,7 @@ void PangolinDSOViewer::publishCamPose(FrameShell* frame,
 	if(!setting_render_display3D) return;
 
 	currentCam->setFromF(frame, HCalib);
-	allFramePoses.push_back(frame->camToWorld.translation().cast<float>());
+	allFramePoses.push_back((T_WR_align*SE3(T_WD.matrix()*frame->camToWorld.matrix()*T_WD.inverse().matrix())*T_BC.inverse()).translation().cast<float>());
 }
 
 

@@ -208,17 +208,25 @@ extern int staticPatternPadding[10];
 
 extern double baseline;
 extern std::string gt_path;
+extern std::string imu_path;
 extern std::vector<SE3> gt_pose;
+extern std::vector<Vec3> m_gry;
+extern std::vector<Vec3> m_acc;
 extern std::string savefile_tail;
 extern SE3 T_C0C1;
 extern SE3 T_C1C0;
 extern Mat33f K_right;
 extern std::vector<double> gt_time_stamp;
+extern std::vector<double> imu_time_stamp;
 extern std::vector<double> pic_time_stamp;
 extern SE3 T_BC;
 extern Mat33 GyrCov;
 extern Mat33 AccCov;
-
+extern Sim3 T_WD;
+extern double G_norm;
+extern int index_align;
+extern SE3 T_WR_align;
+extern double run_time;
 
 
 //#define patternNum staticPatternNum[setting_pattern]

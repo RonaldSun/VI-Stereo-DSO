@@ -213,16 +213,26 @@ int sparsityFactor = 5;	// not actually a setting, only some legacy stuff for co
 
 double baseline = 0;
 std::string gt_path = "";
+std::string imu_path= "";
 std::vector<SE3> gt_pose;
+std::vector<Vec3> m_gry;
+std::vector<Vec3> m_acc;
 std::string savefile_tail = "";
 SE3 T_C0C1;
 SE3 T_C1C0;
 Mat33f K_right;
 std::vector<double> gt_time_stamp;
+std::vector<double> imu_time_stamp;
 std::vector<double> pic_time_stamp;
 SE3 T_BC;
 Mat33 GyrCov;
 Mat33 AccCov;
+Sim3 T_WD;
+double G_norm;
+int index_align;
+SE3 T_WR_align = SE3();
+double run_time=0;
+
 
 void handleKey(char k)
 {

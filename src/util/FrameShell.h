@@ -53,6 +53,12 @@ public:
 	int statistics_goodResOnThis;
 	int marginalizedAt;
 	double movedByOpt;
+	
+	Vec3 velocity = Vec3::Zero();
+	Vec3 bias_g = Vec3::Zero();
+	Vec3 bias_a = Vec3::Zero();
+	Vec3 delta_bias_g = Vec3::Zero();
+	Vec3 delta_bias_a = Vec3::Zero();
 
 
 	inline FrameShell()

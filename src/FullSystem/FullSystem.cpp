@@ -1015,6 +1015,7 @@ void FullSystem::flagPointsForRemoval()
 void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* image_right, int id )
 {
 	LOG(INFO)<<"id: "<<id;
+	run_time = pic_time_stamp[id];
 	if(isLost) return;
 	boost::unique_lock<boost::mutex> lock(trackMutex);
 
@@ -1030,7 +1031,6 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	shell->incoming_id = id;
 	fh->shell = shell;
 	fh_right->shell=shell;
-	allFrameHistory.push_back(shell);
 
 
 	// =========================== make Images / derivatives etc. =========================
@@ -1040,17 +1040,73 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	fh_right->makeImages(image_right->image,&Hcalib);
 	fh->frame_right = fh_right;
 	
+	if(allFrameHistory.size()>0){
+	    fh->velocity = fh->shell->velocity = allFrameHistory.back()->velocity;
+	    fh->bias_g = fh->shell->bias_g = allFrameHistory.back()->bias_g + allFrameHistory.back()->delta_bias_g;
+	    fh->bias_a = fh->shell->bias_a = allFrameHistory.back()->bias_a + allFrameHistory.back()->delta_bias_a;
+	}
+	allFrameHistory.push_back(shell);
 	if(!initialized)
 	{
 		// use initializer!
 		if(coarseInitializer->frameID<0)	// first frame set. fh is kept by coarseInitializer.
 		{
 			coarseInitializer->setFirstStereo(&Hcalib, fh,fh_right);
-			if(gt_pose.size()>0){
-				SE3 temp = gt_pose[0];
-				shell->camToWorld = temp*T_BC;
-				fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),shell->aff_g2l);
+			
+// 			if(gt_pose.size()>0){
+// 				for(int i=0;i<gt_pose.size();++i){
+// 				    if(gt_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
+// 					  SE3 temp = gt_pose[i];
+// 					  shell->camToWorld = temp*T_BC;
+// 					  fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),shell->aff_g2l);
+// 					  index = i;
+// 					  break;					  				
+// 				    }
+// 				}
+// 			}
+			int index;
+			if(imu_time_stamp.size()>0){
+			    for(int i=0;i<imu_time_stamp.size();++i){
+				if(imu_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(imu_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
+				      index = i;
+				      break;					  				
+				}
+			    }
 			}
+			Vec3 g_b = Vec3::Zero();
+			for(int j=0;j<40;j++){
+			    g_b = g_b + m_acc[index-j];
+			}
+			double norm = g_b.norm();
+			g_b = g_b/norm;
+// 			LOG(INFO)<<"g_b: "<<g_b.transpose();
+			Vec3 g_c = T_BC.inverse().rotationMatrix()*g_b;
+
+			norm = g_c.norm();
+			g_c = g_c/norm;
+			Vec3 g_w;
+			g_w<<0,0,-1;
+			
+			Vec3 n = Sophus::SO3::hat(g_c)*g_w;
+
+			norm = n.norm();
+			n = n/norm;
+			double sin_theta = norm;
+			double cos_theta = g_c.dot(g_w);
+
+			Mat33 R_wc = cos_theta*Mat33::Identity()+(1-cos_theta)*n*n.transpose()+sin_theta*Sophus::SO3::hat(n);
+			SE3 T_wc(R_wc,Vec3::Zero());
+			shell->camToWorld = T_wc;
+			fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),shell->aff_g2l);
+			
+			Mat33 R_wd = Mat33::Identity();
+		
+			T_WD = Sim3(RxSO3(1,R_wd),Vec3::Zero());
+// 			LOG(INFO)<<"g_b: "<<g_b.transpose()<<" g_c: "<<g_c.transpose();
+// 			LOG(INFO)<<"R_wc*g_c: "<<(R_wc*g_c).transpose();
+// 			
+// 			LOG(INFO)<<"R_wd*shell->camToWorld.rotationMatrix()*R_wd.transpose()*g_c: "<<(R_wd*shell->camToWorld.rotationMatrix()*R_wd.transpose()*g_c).transpose();
+// 			exit(1);
 // 			initialized = true;
 		}
 		else if(coarseInitializer->trackFrame(fh, outputWrapper))	// if SNAPPED
@@ -1059,8 +1115,8 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 			lock.unlock();
 			deliverTrackedFrame(fh, fh_right, true);
 			
-			Vec4 q4 = rotationToQuaternion(allFrameHistory[0]->camToWorld.rotationMatrix());
-			LOG(INFO)<<"q4: "<<q4.transpose();
+// 			Vec4 q4 = rotationToQuaternion(allFrameHistory[0]->camToWorld.rotationMatrix());
+// 			LOG(INFO)<<"q4: "<<q4.transpose();
 // 			exit(1);
 			
 		}
@@ -1092,7 +1148,12 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 // 		if(allFrameHistory.size() == 2){
 // 			initializeFromInitializer(fh);
 // 		}
+		
+// 		LOG(INFO)<<"fh->velocity: "<<fh->velocity.transpose();
 		Vec4 tres = trackNewCoarse(fh);
+		SE3 temp = allFrameHistory[allFrameHistory.size()-1]->camToWorld.inverse()*allFrameHistory[allFrameHistory.size()-2]->camToWorld;
+		fh->velocity =  temp.translation()/0.05;
+		fh->shell->velocity =  temp.translation()/0.05;
 // 		LOG(INFO)<<"track done";
 		
 		if(!std::isfinite((double)tres[0]) || !std::isfinite((double)tres[1]) || !std::isfinite((double)tres[2]) || !std::isfinite((double)tres[3]))
@@ -1135,10 +1196,11 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 
 
 
-        for(IOWrap::Output3DWrapper* ow : outputWrapper)
-            ow->publishCamPose(fh->shell, &Hcalib);
+		for(IOWrap::Output3DWrapper* ow : outputWrapper)
+		    ow->publishCamPose(fh->shell, &Hcalib);
 
-
+		if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.49)
+		    needToMakeKF = true;
 
 
 		lock.unlock();
@@ -1151,6 +1213,19 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 		
 		Sophus::Matrix4d T = shell->camToWorld.matrix();
 // 		savetrajectory(T);
+		if(id == 199){
+		    if(gt_pose.size()>0){
+			for(int i=0;i<gt_pose.size();++i){
+			    if(gt_time_stamp[i]>=pic_time_stamp[id]||fabs(gt_time_stamp[i]-pic_time_stamp[id])<0.001){
+				      SE3 temp = gt_pose[i];
+				      index_align = i;
+				      break;					  				
+			    }
+			}
+		    }
+		    T_WR_align = gt_pose[index_align]*T_BC*SE3(T_WD.matrix()*allFrameHistory.back()->camToWorld.inverse().matrix()*T_WD.inverse().matrix());
+
+		}
 		
 		return;
 	}
@@ -1536,7 +1611,7 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 		idepthStereo = pt->idepth_stereo;
 		
 		if(!std::isfinite(pt->energyTH) || !std::isfinite(pt->idepth_min) || !std::isfinite(pt->idepth_max)
-				|| pt->idepth_min < 0 || pt->idepth_max < 0)
+				|| pt->idepth_min < 0 || pt->idepth_max < 0 || idepthStereo <0 || (1/pt->idepth_min - 1/pt->idepth_max)>5)
 		{
 		    delete pt;
 		    continue;

@@ -60,6 +60,7 @@ std::string calib = "";
 std::string calib0 = "";
 std::string calib1 = "";
 std::string T_stereo = "";
+std::string pic_timestamp = "";
 double rescale = 1;
 bool reverse = false;
 bool disableROS = false;
@@ -299,6 +300,12 @@ void parseArgument(char* arg)
 		printf("loading groundtruth from %s!\n", gt_path.c_str());
 		return;
 	}
+	if(1==sscanf(arg,"imudata=%s",buf))
+	{
+		imu_path = buf;
+		printf("loading groundtruth from %s!\n", imu_path.c_str());
+		return;
+	}
 	if(1==sscanf(arg,"savefile_tail=%s",buf))
 	{
 		savefile_tail = buf;
@@ -322,6 +329,12 @@ void parseArgument(char* arg)
 	if(1==sscanf(arg,"T_stereo=%s",buf))
 	{
 		T_stereo = buf;
+		return;
+	}
+	
+	if(1==sscanf(arg,"pic_timestamp=%s",buf))
+	{
+		pic_timestamp = buf;
 		return;
 	}
 	
@@ -471,6 +484,32 @@ void getGroundtruth_euroc(){
 	}
 	inf.close();
 }
+void getIMUdata_euroc(){
+	std::ifstream inf;
+	inf.open(imu_path);
+	std::string sline;
+	std::getline(inf,sline);
+	while(std::getline(inf,sline)){
+		std::istringstream ss(sline);
+		Vec3 gyro,acc;
+		double time;
+		ss>>time;
+		time = time/1e9;
+		char temp;
+		for(int i=0;i<3;++i){
+		  ss>>temp;
+		  ss>>gyro(i);
+		}
+		for(int i=0;i<3;++i){
+		  ss>>temp;
+		  ss>>acc(i);
+		}
+		m_gry.push_back(gyro);
+		m_acc.push_back(acc);
+		imu_time_stamp.push_back(time);
+	}
+	inf.close();
+}
 
 void getTstereo(){
 	std::ifstream inf;
@@ -493,6 +532,21 @@ void getTstereo(){
 	T_C1C0 = temp.inverse();
 }
 
+void getPicTimestamp(){
+	std::ifstream inf;
+	inf.open(pic_timestamp);
+	std::string sline;
+	std::getline(inf,sline);
+	while(std::getline(inf,sline)){
+		std::istringstream ss(sline);
+		double time;
+		ss>>time;
+		time = time/1e9;
+		pic_time_stamp.push_back(time);
+	}
+	inf.close();
+}
+
 int main( int argc, char** argv )
 {
 	//setlocale(LC_ALL, "");
@@ -510,17 +564,15 @@ int main( int argc, char** argv )
 	
 	GyrCov = Mat33::Identity()*1.6968e-04*1.6968e-04/0.005;
 	AccCov = Mat33::Identity()*2.0000e-3*2.0000e-3/0.005;
-// 	Mat33 R_C0C1;
-// 	R_C0C1<<1,-0.00232,-0.00034,0.00231,0.99990,-0.01409,0.00038,0.01409,0.99990;
-// 	Vec3 t_C0C1;
-// 	t_C0C1<<0.11007,-0.00016,0.00089;
-// 	T_C0C1 = SE3(R_C0C1,t_C0C1);
-// 	T_C1C0 = T_C0C1.inverse();
-// 
-// 	K_right<<355.092,0,382.193,0,416.553,258.368,0,0,1;
-// 	LOG(INFO)<<"T_C0C1: \n"<<T_C0C1.matrix();
-// 	LOG(INFO)<<"T_C1C0: \n"<<T_C1C0.matrix();
-// 	LOG(INFO)<<"K_right: \n"<<K_right;
+	
+	G_norm = 9.81;
+	
+	getIMUdata_euroc();
+	getPicTimestamp();
+	
+	double time_start;
+	
+	
 	// hook crtl+C.
 	boost::thread exThread = boost::thread(exitThread);
 
@@ -640,7 +692,7 @@ int main( int argc, char** argv )
         double sInitializerOffset=0;
 
 
-        for(int ii=0;ii<(int)idsToPlay.size(); ii++)
+        for(int ii=1;ii<(int)idsToPlay.size(); ii++)
         {
             if(!fullSystem->initialized)	// if not initialized: reset start time.
             {
@@ -650,7 +702,7 @@ int main( int argc, char** argv )
             }
 
             int i = idsToPlay[ii];
-
+	    
 
             ImageAndExposure* img;
 	    ImageAndExposure* img_right;

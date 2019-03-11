@@ -822,6 +822,16 @@ void EnergyFunctional::solveSystemF(int iteration, double lambda, CalibHessian* 
 	assert(EFDeltaValid);
 	assert(EFAdjointsValid);
 	assert(EFIndicesValid);
+	
+// 	std::vector<double> frames_time;
+// 	for(EFFrame* f : frames){
+// 	    frames_time.push_back(pic_time_stamp[f->data->shell->incoming_id]);
+// 	}
+// 	for(int i=1;i<frames_time.size();i++){
+// 	    double dt = frames_time[i] - frames_time[i-1];
+// 	    LOG(INFO)<<"keyframe time interval "<<i<<" :"<<dt;
+// 	}
+	
 
 	MatXX HL_top, HA_top, H_sc;
 	VecX  bL_top, bA_top, bM_top, b_sc;

@@ -740,11 +740,11 @@ ImmaturePointStatus ImmaturePoint::traceStereo(FrameHessian* frame, CalibHessian
 	A(2,1) = -1;
 	Vec2f depth_l_r = ((A.transpose()*A).inverse())*A.transpose()*(-Kt);
 	idepth_stereo = 1/depth_l_r(0);
-	if(idepth_stereo<0){
-	      lastTracePixelInterval=0;
-	      lastTraceUV = Vec2f(-1,-1);
-	      return lastTraceStatus = ImmaturePointStatus::IPS_OUTLIER;
-	}
+// 	if(idepth_stereo<0){
+// 	      lastTracePixelInterval=0;
+// 	      lastTraceUV = Vec2f(-1,-1);
+// 	      return lastTraceStatus = ImmaturePointStatus::IPS_OUTLIER;
+// 	}
 	
 	
 // 	LOG(INFO)<<"KRKi: \n"<<KRKi;

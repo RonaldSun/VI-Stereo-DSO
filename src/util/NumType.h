@@ -49,6 +49,7 @@ namespace dso
 typedef Sophus::SE3d SE3;
 typedef Sophus::Sim3d Sim3;
 typedef Sophus::SO3d SO3;
+typedef Sophus::RxSO3d RxSO3;
 
 
 
@@ -84,6 +85,8 @@ typedef Eigen::Matrix<double,7,7> Mat77;
 typedef Eigen::Matrix<double,CPARS,1> VecC;
 typedef Eigen::Matrix<float,CPARS,1> VecCf;
 typedef Eigen::Matrix<double,13,1> Vec13;
+typedef Eigen::Matrix<double,12,1> Vec12;
+typedef Eigen::Matrix<double,11,1> Vec11;
 typedef Eigen::Matrix<double,10,1> Vec10;
 typedef Eigen::Matrix<double,9,1> Vec9;
 typedef Eigen::Matrix<double,8,1> Vec8;
@@ -122,6 +125,8 @@ typedef Eigen::Matrix<double,4,4> Mat44;
 
 typedef Eigen::Matrix<double,9,9> Mat99;
 typedef Eigen::Matrix<double,9,3> Mat93;
+typedef Eigen::Matrix<double,12,12> Mat1212;
+typedef Eigen::Matrix<double,11,11> Mat1111;
 
 
 typedef Eigen::Matrix<float,MAX_RES_PER_POINT,1> VecNRf;
