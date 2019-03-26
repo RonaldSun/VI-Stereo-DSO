@@ -13,7 +13,7 @@
 
 - EuRoC V2_03:
 
-![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_v2_03.png)
+![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_V2_03.png)
 
 ## P.S.
 
