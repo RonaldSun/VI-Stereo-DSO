@@ -49,6 +49,7 @@ namespace dso
 typedef Sophus::SE3d SE3;
 typedef Sophus::Sim3d Sim3;
 typedef Sophus::SO3d SO3;
+typedef Sophus::SO3f SO3f;
 typedef Sophus::RxSO3d RxSO3;
 
 
@@ -69,10 +70,12 @@ typedef Eigen::Matrix<double,13,13> Mat1313;
 typedef Eigen::Matrix<double,8,10> Mat810;
 typedef Eigen::Matrix<double,8,3> Mat83;
 typedef Eigen::Matrix<double,6,6> Mat66;
+typedef Eigen::Matrix<double,9,6> Mat96;
 typedef Eigen::Matrix<double,5,3> Mat53;
 typedef Eigen::Matrix<double,4,3> Mat43;
 typedef Eigen::Matrix<double,4,2> Mat42;
 typedef Eigen::Matrix<double,3,3> Mat33;
+typedef Eigen::Matrix<double,3,6> Mat36;
 typedef Eigen::Matrix<double,2,2> Mat22;
 typedef Eigen::Matrix<double,8,CPARS> Mat8C;
 typedef Eigen::Matrix<double,CPARS,8> MatC8;
@@ -81,9 +84,13 @@ typedef Eigen::Matrix<float,CPARS,8> MatC8f;
 
 typedef Eigen::Matrix<double,8,8> Mat88;
 typedef Eigen::Matrix<double,7,7> Mat77;
+typedef Eigen::Matrix<double,7,3> Mat73;
 
 typedef Eigen::Matrix<double,CPARS,1> VecC;
 typedef Eigen::Matrix<float,CPARS,1> VecCf;
+typedef Eigen::Matrix<double,15,1> Vec15;
+typedef Eigen::Matrix<double,17,1> Vec17;
+typedef Eigen::Matrix<double,16,1> Vec16;
 typedef Eigen::Matrix<double,13,1> Vec13;
 typedef Eigen::Matrix<double,12,1> Vec12;
 typedef Eigen::Matrix<double,11,1> Vec11;
@@ -124,9 +131,16 @@ typedef Eigen::Matrix<double,4,8> Mat48;
 typedef Eigen::Matrix<double,4,4> Mat44;
 
 typedef Eigen::Matrix<double,9,9> Mat99;
+typedef Eigen::Matrix<double,9,7> Mat97;
 typedef Eigen::Matrix<double,9,3> Mat93;
 typedef Eigen::Matrix<double,12,12> Mat1212;
 typedef Eigen::Matrix<double,11,11> Mat1111;
+typedef Eigen::Matrix<double,15,15> Mat1515;
+typedef Eigen::Matrix<double,17,17> Mat1717;
+typedef Eigen::Matrix<double,16,16> Mat1616;
+typedef Eigen::Matrix<double,10,15> Mat1015;
+typedef Eigen::Matrix<double,9,15> Mat915;
+typedef Eigen::Matrix<double,9,16> Mat916;
 
 
 typedef Eigen::Matrix<float,MAX_RES_PER_POINT,1> VecNRf;
@@ -152,6 +166,7 @@ typedef Eigen::Matrix<float,4,2> Mat42f;
 typedef Eigen::Matrix<float,6,2> Mat62f;
 typedef Eigen::Matrix<float,1,2> Mat12f;
 typedef Eigen::Matrix<float,3,2> Mat32f;
+typedef Eigen::Matrix<float,3,6> Mat36f;
 
 typedef Eigen::Matrix<float,Eigen::Dynamic,1> VecXf;
 typedef Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> MatXXf;

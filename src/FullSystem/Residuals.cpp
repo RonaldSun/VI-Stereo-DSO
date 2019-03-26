@@ -299,6 +299,8 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 // 	Mat33f PRE_KRKiTll = K * PRE_RTll * K.inverse();
 // 	Mat33f PRE_RKiTll = PRE_RTll * K.inverse();
 // 	Vec3f PRE_KtTll = K * PRE_tTll;
+// 	Mat44 M_C1C0_2 = T_WD.inverse().matrix()*T_C1C0.matrix()*T_WD.matrix();
+// 	SE3 T_C1C02(M_C1C0_2);
 	Mat33f PRE_RTll_0 = T_C1C0.rotationMatrix().cast<float>();
 	Vec3f PRE_tTll_0 = T_C1C0.translation().cast<float>();
 

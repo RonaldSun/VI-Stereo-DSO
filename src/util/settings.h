@@ -71,6 +71,10 @@ extern float setting_initialTransPrior;
 extern float setting_initialAffBPrior;
 extern float setting_initialAffAPrior;
 extern float setting_initialCalibHessian;
+extern float setting_initialIMUHessian;
+extern float setting_initialScaleHessian;
+extern float setting_initialbaHessian;
+extern float setting_initialbgHessian;
 
 extern int setting_solverMode;
 extern double setting_solverModeDelta;
@@ -210,6 +214,9 @@ extern double baseline;
 extern std::string gt_path;
 extern std::string imu_path;
 extern std::vector<SE3> gt_pose;
+extern std::vector<Vec3> gt_velocity;
+extern std::vector<Vec3> gt_bias_g;
+extern std::vector<Vec3> gt_bias_a;
 extern std::vector<Vec3> m_gry;
 extern std::vector<Vec3> m_acc;
 extern std::string savefile_tail;
@@ -222,12 +229,23 @@ extern std::vector<double> pic_time_stamp;
 extern SE3 T_BC;
 extern Mat33 GyrCov;
 extern Mat33 AccCov;
+extern Mat33 GyrRandomWalkNoise;
+extern Mat33 AccRandomWalkNoise;
 extern Sim3 T_WD;
+extern Sim3 T_WD_change;
 extern double G_norm;
 extern int index_align;
 extern SE3 T_WR_align;
 extern double run_time;
-
+extern Vec7 step_twd;
+extern double imu_weight;
+extern double imu_weight_tracker;
+extern bool imu_use_flag;
+extern bool imu_track_flag;
+extern bool use_optimize;
+extern double d_min;
+extern double imu_lambda;
+extern bool imu_track_ready;
 
 //#define patternNum staticPatternNum[setting_pattern]
 //#define patternP staticPattern[setting_pattern]

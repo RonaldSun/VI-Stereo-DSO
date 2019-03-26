@@ -30,6 +30,7 @@
 #include "vector"
 #include <math.h>
 #include "map"
+#include "FullSystem/IMUPreintegrator.h"
 
 
 namespace dso
@@ -78,6 +79,7 @@ public:
 
 	void dropResidual(EFResidual* r);
 	void marginalizeFrame(EFFrame* fh);
+	void marginalizeFrame_imu(EFFrame* fh);
 	void removePoint(EFPoint* ph);
 
 
@@ -100,6 +102,17 @@ public:
 
 	MatXX HM;
 	VecX bM;
+	
+	MatXX HM_imu;
+	VecX bM_imu;
+	
+	MatXX HM_imu_half;
+	VecX bM_imu_half;
+	
+	double s_middle = 1;
+	double s_last = 1;
+	double d_now = sqrt(1.1);
+	bool side_last = true;//for d margin: true: upper s_middle false: below s_middle
 
 	int resInA, resInL, resInM;
 	MatXX lastHS;
@@ -132,6 +145,8 @@ private:
 	void accumulateSCF_MT(MatXX &H, VecX &b, bool MT);
 
 	void calcLEnergyPt(int min, int max, Vec10* stats, int tid);
+	
+	void getIMUHessian(MatXX &H, VecX &b);
 
 	void orthogonalize(VecX* b, MatXX* H);
 	Mat18f* adHTdeltaF;

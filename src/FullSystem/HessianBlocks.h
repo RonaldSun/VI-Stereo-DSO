@@ -64,8 +64,6 @@ class EFPoint;
 #define SCALE_A 10.0f
 #define SCALE_B 1000.0f
 
-#define SCALE_V 1000.0f
-
 #define SCALE_IDEPTH_INVERSE (1.0f / SCALE_IDEPTH)
 #define SCALE_XI_ROT_INVERSE (1.0f / SCALE_XI_ROT)
 #define SCALE_XI_TRANS_INVERSE (1.0f / SCALE_XI_TRANS)
@@ -157,6 +155,8 @@ struct FrameHessian
 	Vec10 step;
 	Vec10 step_backup;
 	Vec10 state_backup;
+	
+	Vec9 step_imu = Vec9::Zero();
 	
 	Vec3 velocity = Vec3::Zero();
 	Vec3 delta_bias_g = Vec3::Zero();

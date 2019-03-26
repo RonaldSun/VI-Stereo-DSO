@@ -93,9 +93,10 @@ public:
         {
             Vec3 k = w.normalized();  // k - unit direction vector of w
             Mat33 K = skew(k);
-            Jr =   Mat33::Identity()
-                    - (1-cos(theta))/theta*K
-                    + (1-sin(theta)/theta)*K*K;
+//             Jr =   Mat33::Identity()
+//                     - (1-cos(theta))/theta*K
+//                     + (1-sin(theta)/theta)*K*K;
+	    Jr = sin(theta)/theta*Mat33::Identity()+(1-sin(theta)/theta)*k*k.transpose()-(1-cos(theta))/theta*K;
         }
         return Jr;
     }
@@ -114,9 +115,11 @@ public:
         {
             Vec3 k = w.normalized();  // k - unit direction vector of w
             Mat33 K = Sophus::SO3::hat(k);
-            Jrinv = Mat33::Identity()
-                    + 0.5*Sophus::SO3::hat(w)
-                    + ( 1.0 - (1.0+cos(theta))*theta / (2.0*sin(theta)) ) *K*K;
+//             Jrinv = Mat33::Identity()
+//                     + 0.5*Sophus::SO3::hat(w)
+//                     + ( 1.0 - (1.0+cos(theta))*theta / (2.0*sin(theta)) ) *K*K;
+	    double cot = cos(theta/2)/sin(theta/2);
+	    Jrinv = theta/2*cot*Mat33::Identity()+(1-theta/2*cot)*k*k.transpose()+theta/2*K;
         }
 
         return Jrinv;

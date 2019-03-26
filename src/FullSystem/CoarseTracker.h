@@ -103,11 +103,10 @@ private:
 
 
 	Vec6 calcResAndGS(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &refToNew, AffLight aff_g2l, float cutoffTH);
+	double calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, const IMUPreintegrator &IMU_preintegrator, Vec9 &res_PVPhi, double PointEnergy);
 	Vec6 calcRes(int lvl, const SE3 &refToNew, AffLight aff_g2l, float cutoffTH);
-// 	double calcIMURes(const SE3 &refToNew, const IMUPreintegrator &IMU_preintegrator);
 	void calcGSSSE(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &refToNew, AffLight aff_g2l);
 	void calcGS(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &refToNew, AffLight aff_g2l);
-	double calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, const SE3 &refToNew, const IMUPreintegrator &IMU_preintegrator, Vec9 &res_PVPhi);
 
 	// pc buffers
 	float* pc_u[PYR_LEVELS];

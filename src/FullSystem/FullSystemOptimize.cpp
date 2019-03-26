@@ -257,16 +257,42 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 			}
 		}
 	}
-	else
+	else if(use_optimize)
 	{
 		Hcalib.setValue(Hcalib.value_backup + stepfacC*Hcalib.step);
+		T_WD_change  = Sim3::exp(Vec7::Zero());
+		if(imu_use_flag){
+// 		  T_WD = T_WD*change;
+		  T_WD_change  = Sim3::exp(stepfacC*step_twd);
+// 		  Sim3 T_WD_temp = T_WD*T_WD_change;
+// 		  double s_temp = T_WD_temp.scale();
+// 		  double s_wd = T_WD.scale();
+// 		  double s_new = s_temp/s_wd;
+// 		  if(s_new>d_min)s_new = d_min;
+// 		  if(s_new<1/d_min)s_new = 1/d_min;
+// 		  T_WD = Sim3(RxSO3(s_new*s_wd,T_WD_temp.rotationMatrix()),Vec3::Zero());+
+		  T_WD = T_WD*T_WD_change;
+		  LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
+// 		  LOG(INFO)<<"T_WD.translation(): "<<T_WD.translation().transpose();
+		  
+		}
 		for(FrameHessian* fh : frameHessians)
 		{
+// 			LOG(INFO)<<"fh->step: "<<fh->step;
+// 			LOG(INFO)<<"fh"<<fh->get_worldToCam_evalPT().matrix();
 			fh->setState(fh->state_backup + pstepfac.cwiseProduct(fh->step));
 			sumA += fh->step[6]*fh->step[6];
 			sumB += fh->step[7]*fh->step[7];
 			sumT += fh->step.segment<3>(0).squaredNorm();
 			sumR += fh->step.segment<3>(3).squaredNorm();
+			if(imu_use_flag){
+			    fh->velocity += stepfacC*fh->step_imu.block(0,0,3,1);
+			    fh->delta_bias_g += fh->step_imu.block(3,0,3,1);
+			    fh->delta_bias_a += fh->step_imu.block(6,0,3,1);
+			    fh->shell->velocity = fh->velocity;
+			    fh->shell->delta_bias_g = fh->delta_bias_g;
+			    fh->shell->delta_bias_a = fh->delta_bias_a;
+			}
 
 			for(PointHessian* ph : fh->pointHessians)
 			{
@@ -505,6 +531,7 @@ float FullSystem::optimize(int mnumOptIts)
 		Vec3 newEnergy = linearizeAll(false);
 		double newEnergyL = calcLEnergy();
 		double newEnergyM = calcMEnergy();
+		LOG(INFO)<<"Visual Energy: "<<newEnergy[0];
 
 
 
@@ -556,6 +583,21 @@ float FullSystem::optimize(int mnumOptIts)
 
 	frameHessians.back()->setEvalPT(frameHessians.back()->PRE_worldToCam,
 			newStateZero);
+	
+// 	frameHessians.back()->bias_a = frameHessians[frameHessians.size()-2]->bias_a + frameHessians[frameHessians.size()-2]->delta_bias_a;
+// 	frameHessians.back()->bias_g = frameHessians[frameHessians.size()-2]->bias_g + frameHessians[frameHessians.size()-2]->delta_bias_g;
+	
+// 	Sim3 T_WD_temp = T_WD*T_WD_change;
+// 	double s_temp = T_WD_temp.scale();
+// 	double s_wd = T_WD.scale();
+// 	double s_new = s_temp/s_wd;
+// 	if(s_new>d_min)s_new = d_min;
+// 	if(s_new<1/d_min)s_new = 1/d_min;
+// 	T_WD = Sim3(RxSO3(s_new*s_wd,T_WD_temp.rotationMatrix()),Vec3::Zero());
+// 	
+// 	LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
+	LOG(INFO)<<"frameHessians.back()->bias_a: "<<(frameHessians.back()->bias_a+frameHessians.back()->delta_bias_a).transpose();
+	LOG(INFO)<<"frameHessians.back()->bias_g: "<<(frameHessians.back()->bias_g+frameHessians.back()->delta_bias_g).transpose();
 	EFDeltaValid=false;
 	EFAdjointsValid=false;
 	ef->setAdjointsF(&Hcalib);

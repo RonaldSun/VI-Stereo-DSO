@@ -139,6 +139,11 @@ void FullSystem::flagFramesForMarginalization(FrameHessian* newFH)
 		toMarginalize->flaggedForMarginalization = true;
 		flagged++;
 	}
+// 	if((int)frameHessians.size()-flagged >= setting_maxFrames){
+// 		frameHessians[0]->flaggedForMarginalization = true;
+// 		flagged++;
+// 	  
+// 	}
 
 //	printf("FRAMES LEFT: ");
 //	for(FrameHessian* fh : frameHessians)

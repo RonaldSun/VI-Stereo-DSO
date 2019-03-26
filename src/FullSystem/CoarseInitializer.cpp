@@ -83,7 +83,6 @@ CoarseInitializer::~CoarseInitializer()
 bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IOWrap::Output3DWrapper*> &wraps)
 {
 	newFrame = newFrameHessian;
-	bool newtrack = false;
 
     for(IOWrap::Output3DWrapper* ow : wraps)
         ow->pushLiveFrame(newFrameHessian);
@@ -213,10 +212,8 @@ bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IO
 			if(accept)
 			{
 
-				if(resNew[1] == alphaK*numPoints[lvl]){
+				if(resNew[1] == alphaK*numPoints[lvl])
 					snapped = true;
-					newtrack = true;
-				}
 				H = H_new;
 				b = b_new;
 				Hsc = Hsc_new;
@@ -235,7 +232,6 @@ bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IO
 				fails++;
 				lambda *= 4;
 				if(lambda > 10000) lambda = 10000;
-// 				snapped = false;
 			}
 
 			bool quitOpt = false;
@@ -277,8 +273,8 @@ bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IO
 
 
 
-// 	return snapped && frameID > snappedAt+5 && newtrack;
-	return snapped;
+	return snapped && frameID > snappedAt+5;
+// 	return snapped;
 }
 
 void CoarseInitializer::debugPlot(int lvl, std::vector<IOWrap::Output3DWrapper*> &wraps)

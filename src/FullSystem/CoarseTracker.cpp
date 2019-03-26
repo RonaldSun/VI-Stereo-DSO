@@ -56,7 +56,152 @@ T* allocAligned(int size, std::vector<T*> &rawPtrVec)
     return alignedPtr;
 }
 
+double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, const IMUPreintegrator &IMU_preintegrator, Vec9 &res_PVPhi, double PointEnergy){
+    
 
+    
+    Mat44 M_DCi = lastRef->shell->camToWorld.matrix();
+    Mat44 M_WD = T_WD.matrix();
+    Mat44 M_WB = M_WD*M_DCi*M_WD.inverse()*T_BC.inverse().matrix();
+    SE3 T_WB(M_WB);
+    Mat33 R_WB = T_WB.rotationMatrix();
+    Vec3 t_WB = T_WB.translation();
+    
+    SE3 newToRef = refToNew.inverse();    
+    Mat44 M_DCj = (lastRef->shell->camToWorld * newToRef).matrix();
+    Mat44 M_WBj = M_WD*M_DCj*M_WD.inverse()*T_BC.inverse().matrix();
+    SE3 T_WBj(M_WBj);
+    Mat33 R_WBj = T_WBj.rotationMatrix();
+    Vec3 t_WBj = T_WBj.translation();
+    
+    double dt = IMU_preintegrator.getDeltaTime();
+//     LOG(INFO)<<"dt: "<<dt;
+    H_out = Mat66::Zero();
+    b_out = Vec6::Zero();
+    if(dt>0.5){
+	return 0;
+    }
+    Vec3 g_w;
+    g_w << 0,0,-1;
+    g_w = g_w*G_norm;
+    
+  
+
+    Vec3 so3 = IMU_preintegrator.getJRBiasg()*lastRef->delta_bias_g;
+    double theta = so3.norm();
+    Mat33 R_temp = Mat33::Identity(); 
+    R_temp = SO3::exp(IMU_preintegrator.getJRBiasg()*lastRef->delta_bias_g).matrix();
+    
+    Mat33 res_R = (IMU_preintegrator.getDeltaR()*R_temp).transpose()*R_WB.transpose()*R_WBj;
+//     LOG(INFO)<<"res_R: \n"<<res_R;
+    
+    Vec3 res_phi = SO3(res_R).log();
+    
+//     LOG(INFO)<<"res_phi: "<<res_phi.transpose();
+//     
+//     LOG(INFO)<<"IMU_preintegrator.getDeltaV(): "<<IMU_preintegrator.getDeltaV().transpose();
+	newFrame->velocity = R_WB*(R_WB.transpose()*(lastRef->velocity+g_w*dt)+
+		 (IMU_preintegrator.getDeltaV()+IMU_preintegrator.getJVBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJVBiasg()*lastRef->delta_bias_g));
+// 	Vec3 res_v = R_WB.transpose()*(newFrame->velocity-lastRef->velocity-g_w*dt)-
+// 		 (IMU_preintegrator.getDeltaV()+IMU_preintegrator.getJVBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJVBiasg()*lastRef->delta_bias_g);
+// 	LOG(INFO)<<"res_v: "<<res_v.transpose();
+// 	LOG(INFO)<<std::fixed<<std::setprecision(14)<<"newFrame time: "<<pic_time_stamp[newFrame->shell->incoming_id];
+	int index2;
+	if(gt_time_stamp.size()>0){
+	    for(int i=0;i<gt_time_stamp.size();++i){
+		if(gt_time_stamp[i]>=pic_time_stamp[newFrame->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[newFrame->shell->incoming_id])<0.001){
+		      index2 = i;
+		      break;					  				
+		}
+	    }
+	}
+// 	newFrame->velocity = gt_velocity[index2];
+// 	LOG(INFO)<<"newFrame->velocity: "<<newFrame->velocity.transpose();
+	newFrame->shell->velocity = newFrame->velocity;
+//     LOG(INFO)<<"lastRef->velocity: "<<lastRef->velocity.transpose();
+//     LOG(INFO)<<"newFrame->velocity: "<<newFrame->velocity.transpose();
+//     LOG(INFO)<<"(R_WB.transpose()*g_w).transpose()"<<(R_WB.transpose()*g_w).transpose();
+	
+    Vec3 res_p = R_WB.transpose()*(t_WBj-t_WB-lastRef->velocity*dt-0.5*g_w*dt*dt)-
+		 (IMU_preintegrator.getDeltaP()+IMU_preintegrator.getJPBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJPBiasg()*lastRef->delta_bias_g);
+	
+	
+//     LOG(INFO)<<"res_p: "<<res_p.transpose();
+//     exit(1);
+// 
+//     LOG(INFO)<<"newFrame->velocity: "<<newFrame->velocity.transpose();
+    Mat99 Cov = IMU_preintegrator.getCovPVPhi();
+//     LOG(INFO)<<"Cov: \n"<<Cov;
+    
+//     Vec9 res_PVPhi;
+    res_PVPhi.block(0,0,3,1) = res_p;
+    res_PVPhi.block(3,0,3,1) = Vec3::Zero();
+    res_PVPhi.block(6,0,3,1) = res_phi;
+    
+//     double lambda = 0.03;
+    double res = imu_weight_tracker*imu_weight_tracker*res_PVPhi.transpose() * Cov.inverse() * res_PVPhi;
+//     LOG(INFO)<<"res: "<<res<<" PointEnergy: "<<PointEnergy;
+//     LOG(INFO)<<"Cov.inverse(): \n"<<Cov.inverse();
+    double bei = sqrt(PointEnergy/res);
+    bei /= imu_lambda;
+    
+    Mat33 J_resPhi_phi_j = IMU_preintegrator.JacobianRInv(res_phi);
+    Mat33 J_resV_v_j = R_WB.transpose();
+    Mat33 J_resP_p_j = R_WB.transpose()*R_WBj;
+
+    
+    Mat66 J_imu1 = Mat66::Zero();
+    J_imu1.block(0,0,3,3) = J_resP_p_j;
+    J_imu1.block(3,3,3,3) = J_resPhi_phi_j;
+//     J_imu1.block(6,6,3,3) = J_resV_v_j;
+    Mat66 Weight = Mat66::Zero();
+    Weight.block(0,0,3,3) = Cov.block(0,0,3,3);
+    Weight.block(3,3,3,3) = Cov.block(6,6,3,3);
+//     Weight.block(6,6,3,3) = Cov.block(3,3,3,3);
+    Weight = Mat66::Identity()*Weight.inverse();
+    Weight *=(imu_weight_tracker*imu_weight_tracker);
+//     Weight *=(bei*bei);
+    
+    Vec6 b_1 = Vec6::Zero();
+    b_1.block(0,0,3,1) = res_p;
+    b_1.block(3,0,3,1) = res_phi;
+//     b_1.block(6,0,3,1) = res_v;
+    
+    Mat44 T_temp = T_BC.matrix()*T_WD.matrix()*M_DCj.inverse();
+    Mat66 J_rel = (-1*Sim3(T_temp).Adj()).block(0,0,6,6);
+//     Mat44 T_temp = T_BC.matrix()*M_DCj.inverse();
+//     Mat66 J_rel = (-1*SE3(T_temp).Adj());
+    Mat66 J_xi_tw_th = SE3(M_DCi).Adj();
+//     LOG(INFO)<<"-1*Sim3(T_temp).Adj: "<<-1*Sim3(T_temp).Adj().matrix();
+    
+//     LOG(INFO)<<"J_imu1: \n"<<J_imu1;
+    
+    
+//     Mat99 J_rel = Mat99::Identity();
+//     J_rel.block(0,0,6,6) = M_rel;
+    Mat66 J_xi_r_l = refToNew.Adj().inverse();
+    Mat66 J_2 = Mat66::Zero();
+    J_2 = J_imu1*J_rel*J_xi_tw_th*J_xi_r_l;
+
+    H_out = J_2.transpose()*Weight*J_2;
+    b_out = J_2.transpose()*Weight*b_1;
+    
+    H_out.block<6,3>(0,0) *= SCALE_XI_TRANS;
+    H_out.block<6,3>(0,3) *= SCALE_XI_ROT;
+    H_out.block<3,6>(0,0) *= SCALE_XI_TRANS;
+    H_out.block<3,6>(3,0) *= SCALE_XI_ROT;
+//     H_out.block<9,3>(0,6) *= SCALE_V;
+//     H_out.block<3,9>(6,0) *= SCALE_V;
+    
+    b_out.segment<3>(0) *= SCALE_XI_TRANS;
+    b_out.segment<3>(3) *= SCALE_XI_ROT;
+//     b_out.segment<3>(6) *= SCALE_V;
+    
+//     LOG(INFO)<<"H_out: \n"<<H_out;
+//     LOG(INFO)<<"b_out: \n"<<b_out.transpose();
+//     exit(1);
+    return res;
+}
 CoarseTracker::CoarseTracker(int ww, int hh) : lastRef_aff_g2l(0,0)
 {
 	// make coarse tracking templates.
@@ -507,6 +652,8 @@ void CoarseTracker::makeCoarseDepthL0(std::vector<FrameHessian*> frameHessians, 
 
 }
 
+
+
 void CoarseTracker::calcGSSSE(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &refToNew, AffLight aff_g2l)
 {
 	acc.initialize();
@@ -551,7 +698,7 @@ void CoarseTracker::calcGSSSE(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &ref
 	acc.finish();
 	H_out = acc.H.topLeftCorner<8,8>().cast<double>() * (1.0f/n);
 	b_out = acc.H.topRightCorner<8,1>().cast<double>() * (1.0f/n);
-
+	
 	H_out.block<8,3>(0,0) *= SCALE_XI_TRANS;
 	H_out.block<8,3>(0,3) *= SCALE_XI_ROT;
 	H_out.block<8,1>(0,6) *= SCALE_A;
@@ -566,118 +713,8 @@ void CoarseTracker::calcGSSSE(int lvl, Mat88 &H_out, Vec8 &b_out, const SE3 &ref
 	b_out.segment<1>(7) *= SCALE_B;
 }
 
-double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, const SE3 &refToNew, const IMUPreintegrator &IMU_preintegrator, Vec9 &res_PVPhi){
-    
-    SE3 newToRef = refToNew.inverse();
-    
-    Mat44 M_DCi = lastRef->shell->camToWorld.matrix();
-    Mat44 M_WD = T_WD.matrix();
-    Mat44 M_WB = M_WD*M_DCi*M_WD.inverse()*T_BC.inverse().matrix();
-    SE3 T_WB(M_WB);
-    Mat33 R_WB = T_WB.rotationMatrix();
-    Vec3 t_WB = T_WB.translation();
-    
-    Mat44 M_DCj = (lastRef->shell->camToWorld * newToRef).matrix();
-    Mat44 M_WBj = M_WD*M_DCj*M_WD.inverse()*T_BC.inverse().matrix();
-    SE3 T_WBj(M_WBj);
-    Mat33 R_WBj = T_WBj.rotationMatrix();
-    Vec3 t_WBj = T_WBj.translation();
-    
-    double dt = IMU_preintegrator.getDeltaTime();
-//     LOG(INFO)<<"dt: "<<dt;
-    
-    Vec3 g_w;
-    g_w << 0,0,-1;
-    g_w = g_w*G_norm;
-    Mat33 R_WD = T_WD.rotationMatrix();
 
 
-    Vec3 so3 = IMU_preintegrator.getJRBiasg()*lastRef->delta_bias_g;
-    double theta = so3.norm();
-    Mat33 R_temp = Mat33::Identity(); 
-    if(theta>1e-5){
-	Vec3 n = so3/theta;
-	R_temp = cos(theta)*Mat33::Identity()+(1-cos(theta))*n*n.transpose()+sin(theta)*SO3::hat(n);
-    }
-    Mat33 res_R = (IMU_preintegrator.getDeltaR()*R_temp).transpose()*T_BC.rotationMatrix()*T_WD.rotationMatrix()*newToRef.rotationMatrix()*T_WD.inverse().rotationMatrix()*T_BC.inverse().rotationMatrix();
-    Vec3 res_phi = SO3(res_R).log();
-    
-//     LOG(INFO)<<"res_phi: "<<res_phi.transpose();
-//     
-//     LOG(INFO)<<"IMU_preintegrator.getDeltaV(): "<<IMU_preintegrator.getDeltaV().transpose();
-//     newFrame->velocity = -R_WB*(R_WB.transpose()*(-lastRef->velocity-g_w*dt)-
-// 		 (IMU_preintegrator.getDeltaV()+IMU_preintegrator.getJVBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJVBiasg()*lastRef->delta_bias_g));
-//     newFrame->shell->velocity = lastRef->velocity;
-    Vec3 res_p = R_WB.transpose()*(t_WBj-t_WB-lastRef->velocity*dt-0.5*g_w*dt*dt)-
-		 (IMU_preintegrator.getDeltaP()+IMU_preintegrator.getJPBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJPBiasg()*lastRef->delta_bias_g);
-//     LOG(INFO)<<"res_p: "<<res_p.transpose();
-// 
-//     LOG(INFO)<<"newFrame->velocity: "<<newFrame->velocity.transpose();
-    Mat99 Cov = IMU_preintegrator.getCovPVPhi();
-    
-//     Vec9 res_PVPhi;
-    res_PVPhi.block(0,0,3,1) = res_p;
-    res_PVPhi.block(3,0,3,1) = Vec3::Zero();
-    res_PVPhi.block(6,0,3,1) = res_phi;
-    
-    double lambda = 0.01;
-    double res = lambda*lambda*res_PVPhi.transpose() * Cov.inverse() * res_PVPhi;
-    
-    Mat33 J_resPhi_phi_j = IMU_preintegrator.JacobianRInv(res_phi);
-    Mat33 J_resV_v_j = R_WB.transpose();
-    Mat33 J_resP_p_j = R_WB.transpose()*R_WBj;
-    
-    double theta_phi = res_phi.norm();
-    Mat33 J_t = Mat33::Identity();
-    if(theta_phi>1e-5){
-	Vec3 ori_phi = res_phi/theta_phi;
-	J_t = sin(theta_phi)/theta_phi*Mat33::Identity()+(1-sin(theta_phi)/theta_phi)*ori_phi*ori_phi.transpose()+(1-cos(theta_phi))/theta_phi*Sophus::SO3::hat(ori_phi);
-    }
-    Mat33 J_t_inv = J_t.inverse();
-    Mat33 J_resP_rho = J_t_inv*J_resP_p_j*J_t;
-    
-    Mat66 J_imu1 = Mat66::Zero();
-    J_imu1.block(0,0,3,3) = J_resP_rho;
-    J_imu1.block(3,3,3,3) = J_resPhi_phi_j;
-//     J_imu1.block(6,6,3,3) = J_resV_v_j;
-    
-    Mat66 Weight = Mat66::Zero();
-    Weight.block(0,0,3,3) = J_t_inv*Cov.block(0,0,3,3)*J_t_inv.transpose();
-    Weight.block(3,3,3,3) = Cov.block(6,6,3,3);
-//     Weight.block(6,6,3,3) = Cov.block(3,3,3,3);
-    Weight = Mat66::Identity()*Weight;
-    Weight *=(lambda*lambda);
-    
-    Vec6 b_1;
-    b_1.block(0,0,3,1) = J_t_inv*res_p;
-    b_1.block(3,0,3,1) = res_phi;
-//     b_1.block(6,0,3,1) = res_v;
-    
-    Mat44 T_temp = T_BC.matrix()*T_WD.matrix()*M_DCj.inverse();
-    Mat66 J_rel = (-1*Sim3(T_temp).Adj()).block(0,0,6,6);
-    
-//     Mat99 J_rel = Mat99::Identity();
-//     J_rel.block(0,0,6,6) = M_rel;
-    
-    b_out = J_rel.transpose()*J_imu1*Weight*b_1;
-    H_out = J_rel.transpose()*J_imu1.transpose()*Weight*J_imu1*J_rel;
-    
-    H_out.block<6,3>(0,0) *= SCALE_XI_TRANS;
-    H_out.block<6,3>(0,3) *= SCALE_XI_ROT;
-    H_out.block<3,6>(0,0) *= SCALE_XI_TRANS;
-    H_out.block<3,6>(3,0) *= SCALE_XI_ROT;
-//     H_out.block<9,3>(0,6) *= SCALE_V;
-//     H_out.block<3,9>(6,0) *= SCALE_V;
-    
-    b_out.segment<3>(0) *= SCALE_XI_TRANS;
-    b_out.segment<3>(3) *= SCALE_XI_ROT;
-//     b_out.segment<3>(6) *= SCALE_V;
-    
-//     LOG(INFO)<<"H_out: \n"<<H_out;
-//     LOG(INFO)<<"b_out: \n"<<b_out.transpose();
-//     exit(1);
-    return res;
-}
 
 Vec6 CoarseTracker::calcRes(int lvl, const SE3 &refToNew, AffLight aff_g2l, float cutoffTH)
 {
@@ -888,8 +925,6 @@ bool CoarseTracker::trackNewestCoarse(
 
 	SE3 refToNew_current = lastToNew_out;
 	AffLight aff_g2l_current = aff_g2l_out;
-	
-	SE3 refToNew_gt = gt_pose[newFrame->shell->incoming_id].inverse()*gt_pose[lastRef->shell->incoming_id];
 
 	bool haveRepeated = false;
 
@@ -921,9 +956,7 @@ bool CoarseTracker::trackNewestCoarse(
 	      break;
 	    index++;
 	}
-// 	LOG(INFO)<<"lastRef->shell->incoming_id: "<<lastRef->shell->incoming_id<<" newFrame->shell->incoming_id: "<<newFrame->shell->incoming_id;
-// 	LOG(INFO)<<std::fixed<<std::setprecision(16)<<"time_start: "<<time_start<<" time_end: "<<time_end;
-// 	LOG(INFO)<<"dt: "<<IMU_preintegrator.getDeltaTime();
+	
 	for(int lvl=coarsestLvl; lvl>=0; lvl--)
 	{
 		Mat88 H; Vec8 b;
@@ -934,30 +967,17 @@ bool CoarseTracker::trackNewestCoarse(
 			levelCutoffRepeat*=2;
 			resOld = calcRes(lvl, refToNew_current, aff_g2l_current, setting_coarseCutoffTH*levelCutoffRepeat);
 
-			if(!setting_debugout_runquiet)
-			    printf("INCREASING cutoff to %f (ratio is %f)!\n", setting_coarseCutoffTH*levelCutoffRepeat, resOld[5]);
+            if(!setting_debugout_runquiet)
+                printf("INCREASING cutoff to %f (ratio is %f)!\n", setting_coarseCutoffTH*levelCutoffRepeat, resOld[5]);
 		}
 		
 		calcGSSSE(lvl, H, b, refToNew_current, aff_g2l_current);
-		
-		
 		Mat66 H_imu;
 		Vec6 b_imu;
-		Vec9 res_PVPhi_gt;
 		Vec9 res_PVPhi;
-// 		LOG(INFO)<<"gt start.";
-// 		double res_imu_gt = calcIMUResAndGS(H_imu, b_imu, refToNew_gt, IMU_preintegrator,res_PVPhi_gt);
-// 		LOG(INFO)<<"gt end.";
-		double res_imu_old = calcIMUResAndGS(H_imu, b_imu, refToNew_current, IMU_preintegrator,res_PVPhi);
-		
-		
-// 		LOG(INFO)<<"res_imu_old: "<<res_imu_old;
-// 		LOG(INFO)<<"res_imu_gt: "<<res_imu_gt;
-// 		LOG(INFO)<<"res_PVPhi: "<<res_PVPhi.transpose();
-// 		LOG(INFO)<<"res_PVPhi_gt: "<<res_PVPhi_gt.transpose();
-// 		LOG(INFO)<<"resOld[0]: "<<resOld[0]<<" resOld[1]: "<<resOld[1];
-// 		exit(1);
-		
+		double res_imu_old = calcIMUResAndGS(H_imu, b_imu, refToNew_current, IMU_preintegrator,res_PVPhi,resOld[0]);
+		LOG(INFO)<<"res_imu_old: "<<res_imu_old<<" resOld[0]: "<<resOld[0]<<" resOld[1]: "<<resOld[0];
+	    
 		float lambda = 0.01;
 
 		if(debugPrint)
@@ -975,17 +995,17 @@ bool CoarseTracker::trackNewestCoarse(
 
 		for(int iteration=0; iteration < maxIterations[lvl]; iteration++)
 		{
-// 			Mat88 Hl = H;
-// 			for(int i=0;i<8;i++) Hl(i,i) *= (1+lambda);
-// 			Vec8 inc = Hl.ldlt().solve(-b);
-			Mat88 Hl2 = H;
-			Hl2.block(0,0,6,6) = Hl2.block(0,0,6,6) + H_imu;
-			Vec8 bl2 = b;
-			bl2.block(0,0,6,1) = bl2.block(0,0,6,1) + b_imu;
-			Mat88 Hl = Hl2;
+			Mat88 Hl = H;
+// 			Hl = Mat88::Zero();
+// 			b = Vec8::Zero();
+			if(imu_use_flag&&imu_track_flag&&imu_track_ready){
+			  Hl.block(0,0,6,6) = Hl.block(0,0,6,6) + H_imu;
+			  b.block(0,0,6,1) = b.block(0,0,6,1) + b_imu.block(0,0,6,1);
+			}
 			
-			for(int i=0;i<8;i++) Hl2(i,i) *= (1+lambda);
-			Vec8 inc = Hl2.ldlt().solve(-bl2);
+			for(int i=0;i<8;i++) Hl(i,i) *= (1+lambda);
+			
+			Vec8 inc = Hl.ldlt().solve(-b);
 
 			if(setting_affineOptModeA < 0 && setting_affineOptModeB < 0)	// fix a, b
 			{
@@ -1027,9 +1047,9 @@ bool CoarseTracker::trackNewestCoarse(
 			incScaled.segment<3>(3) *= SCALE_XI_ROT;
 			incScaled.segment<1>(6) *= SCALE_A;
 			incScaled.segment<1>(7) *= SCALE_B;
-			
 
-			if(!std::isfinite(incScaled.sum())) incScaled.setZero();
+            if(!std::isfinite(incScaled.sum())) incScaled.setZero();
+// 			LOG(INFO)<<"incScaled: "<<incScaled.transpose();s
 
 			SE3 refToNew_new = SE3::exp((Vec6)(incScaled.head<6>())) * refToNew_current;
 			AffLight aff_g2l_new = aff_g2l_current;
@@ -1037,11 +1057,12 @@ bool CoarseTracker::trackNewestCoarse(
 			aff_g2l_new.b += incScaled[7];
 
 			Vec6 resNew = calcRes(lvl, refToNew_new, aff_g2l_new, setting_coarseCutoffTH*levelCutoffRepeat);
-			double res_imu_new = calcIMUResAndGS(H_imu, b_imu, refToNew_new, IMU_preintegrator,res_PVPhi);
+			double res_imu_new = calcIMUResAndGS(H_imu, b_imu, refToNew_new, IMU_preintegrator,res_PVPhi,resNew[0]);
 
-// 			bool accept = (resNew[0] / resNew[1]) < (resOld[0] / resOld[1]);
-			
-			bool accept = (resNew[0] / resNew[1] * resOld[1] + res_imu_new) < (resOld[0] + res_imu_old);
+			bool accept = (resNew[0] / resNew[1]) < (resOld[0] / resOld[1]);
+			if(imu_use_flag&&imu_track_flag&&imu_track_ready){
+			  accept = (resNew[0] / resNew[1] * resOld[1] + res_imu_new) < (resOld[0] + res_imu_old);
+			}
 
 			if(debugPrint)
 			{
@@ -1063,8 +1084,6 @@ bool CoarseTracker::trackNewestCoarse(
 				aff_g2l_current = aff_g2l_new;
 				refToNew_current = refToNew_new;
 				lambda *= 0.5;
-				
-				res_imu_old = res_imu_new;
 			}
 			else
 			{
@@ -1113,7 +1132,7 @@ bool CoarseTracker::trackNewestCoarse(
 
 	if(setting_affineOptModeA < 0) aff_g2l_out.a=0;
 	if(setting_affineOptModeB < 0) aff_g2l_out.b=0;
-// 	exit(1);
+
 	return true;
 }
 

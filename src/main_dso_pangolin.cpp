@@ -49,6 +49,7 @@
 
 #include "IOWrapper/Pangolin/PangolinDSOViewer.h"
 #include "IOWrapper/OutputWrapper/SampleOutputWrapper.h"
+#include <opencv2/highgui/highgui.hpp>
 
 
 std::string vignette = "";
@@ -113,17 +114,17 @@ void settingsDefault(int preset)
 
 		playbackSpeed = (preset==0 ? 0 : 1);
 		preload = preset==1;
-// 		setting_desiredImmatureDensity = 1500;
-// 		setting_desiredPointDensity = 2000;
-		setting_desiredImmatureDensity = 3000;
-		setting_desiredPointDensity = 3000;
+		setting_desiredImmatureDensity = 1500;
+		setting_desiredPointDensity = 2000;
+// 		setting_desiredImmatureDensity = 3000;
+// 		setting_desiredPointDensity = 3000;
 		setting_minFrames = 5;
 		setting_maxFrames = 7;
 		setting_maxOptIterations=6;
 		setting_minOptIterations=1;
 
 		setting_logStuff = false;
-		setting_kfGlobalWeight=0.3;   // original is 1.0. 0.3 is a balance between speed and accuracy. if tracking lost, set this para higher
+		setting_kfGlobalWeight=1;   // original is 1.0. 0.3 is a balance between speed and accuracy. if tracking lost, set this para higher
 		setting_maxShiftWeightT= 0.04f * (640 + 128);   // original is 0.04f * (640+480); this para is depend on the crop size.
 		setting_maxShiftWeightR= 0.04f * (640 + 128);    // original is 0.0f * (640+480);
 		setting_maxShiftWeightRT= 0.02f * (640 + 128);  // original is 0.02f * (640+480);
@@ -332,6 +333,7 @@ void parseArgument(char* arg)
 		return;
 	}
 	
+	
 	if(1==sscanf(arg,"pic_timestamp=%s",buf))
 	{
 		pic_timestamp = buf;
@@ -363,6 +365,17 @@ void parseArgument(char* arg)
 	{
 		rescale = foption;
 		printf("RESCALE %f!\n", rescale);
+		return;
+	}
+	
+	if(1==sscanf(arg,"imu_weight=%f",&foption))
+	{
+		imu_weight = foption;
+		return;
+	}
+	if(1==sscanf(arg,"imu_weight_tracker=%f",&foption))
+	{
+		imu_weight_tracker = foption;
 		return;
 	}
 
@@ -463,6 +476,9 @@ void getGroundtruth_euroc(){
 		std::istringstream ss(sline);
 		Vec4 q4;
 		Vec3 t;
+		Vec3 v;
+		Vec3 bias_g;
+		Vec3 bias_a;
 		double time;
 		ss>>time;
 		time = time/1e9;
@@ -477,10 +493,25 @@ void getGroundtruth_euroc(){
 		  ss>>temp;
 		  ss>>q4(i);
 		}
+		for(int i=0;i<3;++i){
+		  ss>>temp;
+		  ss>>v(i);
+		}
+		for(int i=0;i<3;++i){
+		  ss>>temp;
+		  ss>>bias_g(i);
+		}
+		for(int i=0;i<3;++i){
+		  ss>>temp;
+		  ss>>bias_a(i);
+		}
 		Eigen::Matrix3d R_wb = quaternionToRotation(q4);
 		SE3 pose0(R_wb,t);
 		gt_pose.push_back(pose0);
 		gt_time_stamp.push_back(time);
+		gt_velocity.push_back(v);
+		gt_bias_g.push_back(bias_g);
+		gt_bias_a.push_back(bias_a);
 	}
 	inf.close();
 }
@@ -550,6 +581,8 @@ void getPicTimestamp(){
 int main( int argc, char** argv )
 {
 	//setlocale(LC_ALL, "");
+	imu_weight = 3;
+	imu_weight_tracker = 0.1;
 	for(int i=1; i<argc;i++)
 		parseArgument(argv[i]);
 
@@ -564,8 +597,20 @@ int main( int argc, char** argv )
 	
 	GyrCov = Mat33::Identity()*1.6968e-04*1.6968e-04/0.005;
 	AccCov = Mat33::Identity()*2.0000e-3*2.0000e-3/0.005;
+	GyrRandomWalkNoise = Mat33::Identity()*1.9393e-05*1.9393e-05;
+	AccRandomWalkNoise = Mat33::Identity()*3.0000e-3*3.0000e-3;
 	
 	G_norm = 9.81;
+	imu_use_flag = true;
+	imu_track_flag = true;
+	use_optimize = true;
+	imu_track_ready = false;
+	setting_initialIMUHessian = 0;
+	setting_initialScaleHessian = 0;
+	setting_initialbaHessian = 0;
+	setting_initialbgHessian = 0;
+	imu_lambda = 5;
+	d_min = sqrt(1.1);
 	
 	getIMUdata_euroc();
 	getPicTimestamp();
@@ -692,7 +737,7 @@ int main( int argc, char** argv )
         double sInitializerOffset=0;
 
 
-        for(int ii=1;ii<(int)idsToPlay.size(); ii++)
+        for(int ii=30;ii<(int)idsToPlay.size(); ii++)
         {
             if(!fullSystem->initialized)	// if not initialized: reset start time.
             {
@@ -732,11 +777,18 @@ int main( int argc, char** argv )
                 }
             }
 
-
+// 	    if(i>300){
+// 		imu_weight_tracker = 1;
+// 	    }
+// 	    if(i>600){
+// 		imu_weight_tracker = 1;
+// 	    }
 
             if(!skipFrame) fullSystem->addActiveFrame(img, img_right, i);
-
-
+			  
+// 	    IplImage* src = 0;
+// 	    cvShowImage("camera",src);
+// 	    cv::waitKey(-1);
 
 
             delete img;

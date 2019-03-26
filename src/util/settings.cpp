@@ -52,7 +52,10 @@ float setting_initialAffBPrior = 1e14;
 float setting_initialAffAPrior = 1e14;
 float setting_initialCalibHessian = 5e9;
 
-
+float setting_initialIMUHessian = 5e7;
+float setting_initialScaleHessian = 5e5;
+float setting_initialbaHessian = 5e5;
+float setting_initialbgHessian = 1;
 
 
 
@@ -215,6 +218,9 @@ double baseline = 0;
 std::string gt_path = "";
 std::string imu_path= "";
 std::vector<SE3> gt_pose;
+std::vector<Vec3> gt_velocity;
+std::vector<Vec3> gt_bias_g;
+std::vector<Vec3> gt_bias_a;
 std::vector<Vec3> m_gry;
 std::vector<Vec3> m_acc;
 std::string savefile_tail = "";
@@ -227,12 +233,23 @@ std::vector<double> pic_time_stamp;
 SE3 T_BC;
 Mat33 GyrCov;
 Mat33 AccCov;
+Mat33 GyrRandomWalkNoise;
+Mat33 AccRandomWalkNoise;
 Sim3 T_WD;
+Sim3 T_WD_change;
 double G_norm;
 int index_align;
 SE3 T_WR_align = SE3();
 double run_time=0;
-
+Vec7 step_twd = Vec7::Zero();
+double imu_weight = 1;
+double imu_weight_tracker = 1;
+bool imu_use_flag = true;
+bool imu_track_flag = true;
+bool use_optimize = true;
+double d_min = sqrt(1.1);
+double imu_lambda = 2;
+bool imu_track_ready = false;
 
 void handleKey(char k)
 {
