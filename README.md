@@ -7,14 +7,15 @@
 
 ## Experiments
 
-- EuRoC V2_03:
-
-![](/pic/euroc_V1_03.png)
-
 - EuRoC V1_03:
 
-![](/pic/euroc_v2_03.png)
+![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_v1_03.png)
+
+- EuRoC V2_03:
+
+![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_v2_03.png)
 
 ## P.S.
 
-Need more test.
+Tests and evaluation in detail are needed.
+
