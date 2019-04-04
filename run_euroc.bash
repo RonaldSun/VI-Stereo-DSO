@@ -1,9 +1,9 @@
 #!/bin/bash
 #usage: python xxx.py file_name
-#dataname="MH_01_easy"
+dataname="MH_01_easy"
 #dataname="MH_05_difficult"
 #dataname="V2_03_difficult"
-dataname="V1_03_difficult"
+#dataname="V1_03_difficult"
     # run dso
      ./build/bin/dso_dataset \
  	  files0=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/cam0/data \
@@ -16,7 +16,7 @@ dataname="V1_03_difficult"
 	  pic_timestamp=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/cam0/data.csv \
  	  preset=0 mode=1 \
 	  quiet=1 nomt=1\
-	  imu_weight=3 imu_weight_tracker=0.1
+	  imu_weight=3 imu_weight_tracker=0.02
 
 
 

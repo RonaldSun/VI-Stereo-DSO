@@ -175,7 +175,7 @@ ImmaturePointStatus ImmaturePoint::traceOn(FrameHessian* frame,const Mat33f &hos
 		dist = maxPixSearch;
 
 		// project to arbitrary depth to get direction.
-		ptpMax = pr + hostToFrame_Kt*0.0001;
+		ptpMax = pr + hostToFrame_Kt*0.01;
 		uMax = ptpMax[0] / ptpMax[2];
 		vMax = ptpMax[1] / ptpMax[2];
 
@@ -512,7 +512,7 @@ ImmaturePointStatus ImmaturePoint::traceStereo(FrameHessian* frame, CalibHessian
 		dist = maxPixSearch;
 
 		// project to arbitrary depth to get direction.
-		ptpMax = pr + Kt*0.0001;
+		ptpMax = pr + Kt*0.01;
 		uMax = ptpMax[0] / ptpMax[2];
 		vMax = ptpMax[1] / ptpMax[2];
 
