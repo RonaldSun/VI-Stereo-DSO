@@ -211,13 +211,17 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	Weight.block(0,0,3,3) = Cov.block(0,0,3,3);
 	Weight.block(3,3,3,3) = Cov.block(6,6,3,3);
         Weight.block(6,6,3,3) = Cov.block(3,3,3,3);
-	Weight = Mat99::Identity()*Weight;
+	Mat99 Weight2 = Mat99::Zero();
+	for(int i=0;i<9;++i){
+	    Weight2(i,i) = Weight(i,i);
+	}
+	Weight = Weight2;
 // 	Mat99 Weight_sqrt = Mat99::Zero();
 // 	for(int j=0;j<9;++j){
 // 	    Weight_sqrt(j,j) = imu_weight*sqrt(1/Weight(j,j));
 // 	}
 // 	LOG(INFO)<<"Weight_sqrt: "<<Weight_sqrt.diagonal().transpose();
-	Weight = Mat99::Identity()*imu_weight*imu_weight*Weight.inverse();
+	Weight = imu_weight*imu_weight*Weight.inverse();
 
 	Vec9 b_1 = Vec9::Zero();
 	b_1.block(0,0,3,1) = res_p2;
@@ -276,6 +280,10 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	    J_poseb_wd_i.block(0,6,7,1) = Vec7::Zero();
 	    J_poseb_wd_j.block(0,6,7,1) = Vec7::Zero();
 	}
+// 	if(Framei->velocity.norm()>0.1){
+// 	    J_poseb_wd_i.block(0,6,7,1) = Vec7::Zero();
+// 	    J_poseb_wd_j.block(0,6,7,1) = Vec7::Zero();
+// 	}
 	
 	
 // 	LOG(INFO)<<"J_poseb_wd_i: \n"<<J_poseb_wd_i;
@@ -330,7 +338,7 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	
 // 	LOG(INFO)<<"Weight_sqrt*b_1: "<<(Weight_sqrt*b_1).transpose();
     }
-    LOG(INFO)<<"IMU Energy: "<<Energy;
+//     LOG(INFO)<<"IMU Energy: "<<Energy;
 //     LOG(INFO)<<"r_all: "<<r_all.transpose();
 //     LOG(INFO)<<"666666666";
     
@@ -439,6 +447,9 @@ EnergyFunctional::EnergyFunctional()
 	
 	HM_imu = MatXX::Zero(CPARS+7,CPARS+7);
 	bM_imu = VecX::Zero(CPARS+7);
+	
+	HM_bias = MatXX::Zero(CPARS+7,CPARS+7);
+	bM_bias = VecX::Zero(CPARS+7);
 	
 	HM_imu_half = MatXX::Zero(CPARS+7,CPARS+7);
 	bM_imu_half = VecX::Zero(CPARS+7);
@@ -783,6 +794,12 @@ EFFrame* EnergyFunctional::insertFrame(FrameHessian* fh, CalibHessian* Hcalib)
 	HM_imu.rightCols<17>().setZero();
 	HM_imu.bottomRows<17>().setZero();
 	
+	bM_bias.conservativeResize(17*nFrames+CPARS+7);
+	HM_bias.conservativeResize(17*nFrames+CPARS+7,17*nFrames+CPARS+7);
+	bM_bias.tail<17>().setZero();
+	HM_bias.rightCols<17>().setZero();
+	HM_bias.bottomRows<17>().setZero();
+	
 	bM_imu_half.conservativeResize(17*nFrames+CPARS+7);
 	HM_imu_half.conservativeResize(17*nFrames+CPARS+7,17*nFrames+CPARS+7);
 	bM_imu_half.tail<17>().setZero();
@@ -855,6 +872,7 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	MatXX HM_change = MatXX::Zero(CPARS+7+nFrames*17, CPARS+7+nFrames*17);
 	VecX bM_change = VecX::Zero(CPARS+7+nFrames*17);
 // 	LOG(INFO)<<"fh->idx: "<<fh->idx;
+	double mar_weight = 0.5;
 	for(int i=fh->idx-1;i<fh->idx+1;i++){
 	    if(i<0)continue;
 	    MatXX J_all = MatXX::Zero(9, CPARS+7+nFrames*17);
@@ -990,12 +1008,16 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    Weight.block(0,0,3,3) = Cov.block(0,0,3,3);
 	    Weight.block(3,3,3,3) = Cov.block(6,6,3,3);
 	    Weight.block(6,6,3,3) = Cov.block(3,3,3,3);
-	    Weight = Mat99::Identity()*Weight;
+	    Mat99 Weight2 = Mat99::Zero();
+	    for(int i=0;i<9;++i){
+		Weight2(i,i) = Weight(i,i);
+	    }
+	    Weight = Weight2;
 // 	    Mat99 Weight_sqrt = Mat99::Zero();
 // 	    for(int j=0;j<9;++j){
 // 		Weight_sqrt(j,j) = imu_weight*sqrt(1/Weight(j,j));
 // 	    }
-	    Weight = Mat99::Identity()*imu_weight*imu_weight*Weight.inverse();
+	    Weight = imu_weight*imu_weight*Weight.inverse();
     // 	LOG(INFO)<<"Weight_sqrt: "<<Weight_sqrt.diagonal().transpose();
 
 	    Vec9 b_1 = Vec9::Zero();
@@ -1056,28 +1078,45 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    Cov_bias.block(0,0,3,3) = GyrRandomWalkNoise*dt;
 	    Cov_bias.block(3,3,3,3) = AccRandomWalkNoise*dt;
 	    Mat66 weight_bias = Mat66::Identity()*imu_weight*imu_weight*Cov_bias.inverse();
-	    HM_change += J_all2.transpose()*weight_bias*J_all2;
-	    bM_change += J_all2.transpose()*weight_bias*r_all2;
+	    HM_bias += (J_all2.transpose()*weight_bias*J_all2*setting_margWeightFac_imu);
+	    bM_bias += (J_all2.transpose()*weight_bias*r_all2*setting_margWeightFac_imu);
 	    
-	    HM_change *= setting_margWeightFac;
-	    bM_change *= setting_margWeightFac;
+// 	    HM_change *= setting_margWeightFac;
+// 	    bM_change *= setting_margWeightFac;
 	}
-	
+	HM_change = HM_change*setting_margWeightFac_imu;
+	bM_change = bM_change*setting_margWeightFac_imu;
 	double s_now = T_WD.scale();
-	double di = s_now/s_last;
+	double di=1;
+	if(s_last>s_now){
+	    di = (s_last+0.001)/s_now;
+	}else{
+	    di = (s_now+0.001)/s_last;
+	}
 	s_last = s_now;
-	if(di<1)di = 1/di;
 	if(di>d_now)d_now = di;
 	if(d_now>d_min) d_now = d_min;
 	LOG(INFO)<<"s_now: "<<s_now<<" s_middle: "<<s_middle<<" d_now: "<<d_now;
-	
+	if(di>d_half)d_half = di;
+	if(d_half>d_min) d_half = d_min;
 	
 	bool side = s_now>s_middle;
 	if(side!=side_last){
 	    HM_imu_half.block(CPARS+6,0,1,HM_imu_half.cols()) = MatXX::Zero(1,HM_imu_half.cols());
 	    HM_imu_half.block(0,CPARS+6,HM_imu_half.rows(),1) = MatXX::Zero(HM_imu_half.rows(),1);
 	    bM_imu_half[CPARS+6] = 0;
+// 	    HM_imu_half.block(CPARS,0,7,HM_imu_half.cols()) = MatXX::Zero(7,HM_imu_half.cols());
+// 	    HM_imu_half.block(0,CPARS,HM_imu_half.rows(),7) = MatXX::Zero(HM_imu_half.rows(),7);
+// 	    bM_imu_half.block(CPARS,0,7,1) = VecX::Zero(7);
+	    
+	    HM_imu_half.setZero();
+	    bM_imu_half.setZero();
+	    d_half = di;
+	    if(d_half>d_min)d_half = d_min;
+	    
+	    M_num = 0;
 	}
+	M_num++;
 	side_last = side;
 	
 	HM_imu_half += HM_change;
@@ -1093,7 +1132,7 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 		VecX tailTMP = bM_imu_half.tail(ntail);
 		bM_imu_half.segment(io,ntail) = tailTMP;
 		bM_imu_half.tail<17>() = bTmp;
-
+  
 		MatXX HtmpCol = HM_imu_half.block(0,io,odim,17);
 		MatXX rightColsTmp = HM_imu_half.rightCols(ntail);
 		HM_imu_half.block(0,io,odim,ntail) = rightColsTmp;
@@ -1130,18 +1169,110 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	HM_imu_half = 0.5*(HMScaled.topLeftCorner(ndim,ndim) + HMScaled.topLeftCorner(ndim,ndim).transpose());
 	bM_imu_half = bMScaled.head(ndim);
 	
-	if(s_now>s_middle*d_now){
+	//marginalize bias
+	{
+	if((int)fh->idx != (int)frames.size()-1)
+	{
+		int io = fh->idx*17+CPARS+7;	// index of frame to move to end
+		int ntail = 17*(nFrames-fh->idx-1);
+		assert((io+17+ntail) == nFrames*17+CPARS+7);
+
+		Vec17 bTmp = bM_bias.segment<17>(io);
+		VecX tailTMP = bM_bias.tail(ntail);
+		bM_bias.segment(io,ntail) = tailTMP;
+		bM_bias.tail<17>() = bTmp;
+
+		MatXX HtmpCol = HM_bias.block(0,io,odim,17);
+		MatXX rightColsTmp = HM_bias.rightCols(ntail);
+		HM_bias.block(0,io,odim,ntail) = rightColsTmp;
+		HM_bias.rightCols(17) = HtmpCol;
+
+		MatXX HtmpRow = HM_bias.block(io,0,17,odim);
+		MatXX botRowsTmp = HM_bias.bottomRows(ntail);
+		HM_bias.block(io,0,ntail,odim) = botRowsTmp;
+		HM_bias.bottomRows(17) = HtmpRow;
+	}
+	VecX SVec = (HM_bias.diagonal().cwiseAbs()+VecX::Constant(HM_bias.cols(), 10)).cwiseSqrt();
+	VecX SVecI = SVec.cwiseInverse();
+	
+	MatXX HMScaled = SVecI.asDiagonal() * HM_bias * SVecI.asDiagonal();
+	VecX bMScaled =  SVecI.asDiagonal() * bM_bias;
+	
+	Mat1717 hpi = HMScaled.bottomRightCorner<17,17>();
+	hpi = 0.5f*(hpi+hpi);
+	hpi = hpi.inverse();
+	hpi = 0.5f*(hpi+hpi);
+	if(std::isfinite(hpi(0,0))==false){
+	    hpi = Mat1717::Zero();
+	}
+	
+	MatXX bli = HMScaled.bottomLeftCorner(17,ndim).transpose() * hpi;
+	HMScaled.topLeftCorner(ndim,ndim).noalias() -= bli * HMScaled.bottomLeftCorner(17,ndim);
+	bMScaled.head(ndim).noalias() -= bli*bMScaled.tail<17>();
+
+	//unscale!
+	HMScaled = SVec.asDiagonal() * HMScaled * SVec.asDiagonal();
+	bMScaled = SVec.asDiagonal() * bMScaled;
+
+	// set.
+	HM_bias = 0.5*(HMScaled.topLeftCorner(ndim,ndim) + HMScaled.topLeftCorner(ndim,ndim).transpose());
+	bM_bias = bMScaled.head(ndim);
+	}
+// 	if(s_now>s_middle*d_now){
+// 	    HM_imu = HM_imu_half;
+// 	    bM_imu = bM_imu_half;
+// // 	    s_middle = s_middle*d_now;
+// 	    s_middle = s_now;
+// // 	    d_now = d_half;
+// 	    M_num2 = M_num;
+// 	    HM_imu_half.setZero();
+// 	    bM_imu_half.setZero();
+// 	    HM_imu_half.block(CPARS+6,0,1,HM_imu_half.cols()) = MatXX::Zero(1,HM_imu_half.cols());
+// // 	    HM_imu_half.block(0,CPARS+6,HM_imu_half.rows(),1) = MatXX::Zero(HM_imu_half.rows(),1);
+// // 	    bM_imu_half[CPARS+6] = 0;
+// 	    d_half = di;
+// 	    if(d_half>d_min)d_half = d_min;
+// 	    M_num = 0;
+// 	}else if(s_now<s_middle/d_now){
+// 	    HM_imu = HM_imu_half;
+// 	    bM_imu = bM_imu_half;
+// // 	    s_middle = s_middle/d_now;
+// 	    s_middle = s_now;
+// // 	    d_now = d_half;
+// 	    M_num2 = M_num;
+// 	    HM_imu_half.setZero();
+// 	    bM_imu_half.setZero();
+// // 	    HM_imu_half.block(CPARS+6,0,1,HM_imu_half.cols()) = MatXX::Zero(1,HM_imu_half.cols());
+// // 	    HM_imu_half.block(0,CPARS+6,HM_imu_half.rows(),1) = MatXX::Zero(HM_imu_half.rows(),1);
+// // 	    bM_imu_half[CPARS+6] = 0;
+// 	    d_half = di;
+// 	    if(d_half>d_min)d_half = d_min;
+// 	    M_num = 0;
+// 	}else
+	  if(M_num>20&&(s_now>s_middle*d_now||s_now<s_middle/d_now)&&use_Dmargin){
 	    HM_imu = HM_imu_half;
 	    bM_imu = bM_imu_half;
-	    s_middle = s_middle*d_now;
-	}else if(s_now<s_middle/d_now){
-	    HM_imu = HM_imu_half;
-	    bM_imu = bM_imu_half;
-	    s_middle = s_middle/d_now;
-	}else{
+// 	    s_middle = s_middle/d_now;
+	    s_middle = s_now;
+	    d_now = d_half;
+	    M_num2 = M_num;
+	    HM_imu_half.setZero();
+	    bM_imu_half.setZero();
+	    HM_imu_half.block(CPARS+6,0,1,HM_imu_half.cols()) = MatXX::Zero(1,HM_imu_half.cols());
+	    HM_imu_half.block(0,CPARS+6,HM_imu_half.rows(),1) = MatXX::Zero(HM_imu_half.rows(),1);
+	    bM_imu_half[CPARS+6] = 0;
+// 	    HM_imu_half.block(CPARS,0,7,HM_imu_half.cols()) = MatXX::Zero(7,HM_imu_half.cols());
+// 	    HM_imu_half.block(0,CPARS,HM_imu_half.rows(),7) = MatXX::Zero(HM_imu_half.rows(),7);
+// 	    bM_imu_half.block(CPARS,0,7,1) = VecX::Zero(7);
+	    d_half = di;
+	    if(d_half>d_min)d_half = d_min;
+	    M_num = 0;
+	  }
+	  else{
 	    HM_imu += HM_change;
 	    bM_imu += bM_change;
 	    
+	    M_num2 ++;
 	    if((int)fh->idx != (int)frames.size()-1)
 	    {
 		    int io = fh->idx*17+CPARS+7;	// index of frame to move to end
@@ -1640,8 +1771,8 @@ void EnergyFunctional::solveSystemF(int iteration, double lambda, CalibHessian* 
 	    bFinal_top2.block(CPARS+7+17*i,0,6,1) += b_imu.block(7+15*i,0,6,1);
 	    bFinal_top2.block(CPARS+7+17*i+8,0,9,1) += b_imu.block(7+15*i+6,0,9,1);
 	}
-	HFinal_top2 += HM_imu;
-	bFinal_top2 += bM_imu;
+	HFinal_top2 += (HM_imu + HM_bias);
+	bFinal_top2 += (bM_imu + bM_bias);
 	VecX x = VecX::Zero(CPARS+8*nFrames);
 	VecX x2= VecX::Zero(CPARS+7+17*nFrames);
 	VecX x3= VecX::Zero(CPARS+7+17*nFrames);

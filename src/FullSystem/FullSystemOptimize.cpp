@@ -272,7 +272,7 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 // 		  if(s_new<1/d_min)s_new = 1/d_min;
 // 		  T_WD = Sim3(RxSO3(s_new*s_wd,T_WD_temp.rotationMatrix()),Vec3::Zero());+
 		  T_WD = T_WD*T_WD_change;
-		  LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
+// 		  LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
 // 		  LOG(INFO)<<"T_WD.translation(): "<<T_WD.translation().transpose();
 		  
 		}
@@ -531,7 +531,7 @@ float FullSystem::optimize(int mnumOptIts)
 		Vec3 newEnergy = linearizeAll(false);
 		double newEnergyL = calcLEnergy();
 		double newEnergyM = calcMEnergy();
-		LOG(INFO)<<"Visual Energy: "<<newEnergy[0];
+// 		LOG(INFO)<<"Visual Energy: "<<newEnergy[0];
 
 
 
@@ -595,7 +595,7 @@ float FullSystem::optimize(int mnumOptIts)
 // 	if(s_new<1/d_min)s_new = 1/d_min;
 // 	T_WD = Sim3(RxSO3(s_new*s_wd,T_WD_temp.rotationMatrix()),Vec3::Zero());
 // 	
-// 	LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
+	LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
 	LOG(INFO)<<"frameHessians.back()->bias_a: "<<(frameHessians.back()->bias_a+frameHessians.back()->delta_bias_a).transpose();
 	LOG(INFO)<<"frameHessians.back()->bias_g: "<<(frameHessians.back()->bias_g+frameHessians.back()->delta_bias_g).transpose();
 	EFDeltaValid=false;

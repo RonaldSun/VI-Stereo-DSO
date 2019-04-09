@@ -226,6 +226,7 @@ extern Mat33f K_right;
 extern std::vector<double> gt_time_stamp;
 extern std::vector<double> imu_time_stamp;
 extern std::vector<double> pic_time_stamp;
+extern std::vector<double> pic_time_stamp_r;
 extern SE3 T_BC;
 extern Mat33 GyrCov;
 extern Mat33 AccCov;
@@ -243,9 +244,14 @@ extern double imu_weight_tracker;
 extern bool imu_use_flag;
 extern bool imu_track_flag;
 extern bool use_optimize;
+extern bool use_Dmargin;
 extern double d_min;
 extern double imu_lambda;
 extern bool imu_track_ready;
+extern double stereo_weight;
+extern int M_num;
+extern int M_num2;
+extern double setting_margWeightFac_imu;
 
 //#define patternNum staticPatternNum[setting_pattern]
 //#define patternP staticPattern[setting_pattern]

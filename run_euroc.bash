@@ -1,6 +1,9 @@
 #!/bin/bash
 #usage: python xxx.py file_name
 dataname="MH_01_easy"
+#dataname="MH_02_easy"
+#dataname="MH_03_medium"
+#dataname="MH_04_difficult"
 #dataname="MH_05_difficult"
 #dataname="V2_03_difficult"
 #dataname="V1_03_difficult"
@@ -14,9 +17,10 @@ dataname="MH_01_easy"
 	  groundtruth=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/state_groundtruth_estimate0/data.csv \
 	  imudata=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/imu0/data.csv \
 	  pic_timestamp=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/cam0/data.csv \
+	  pic_timestamp1=/media/sjm/SJM_WIN/AILEARN/SLAM/data_set/${dataname}/mav0/cam1/data.csv \
  	  preset=0 mode=1 \
-	  quiet=1 nomt=1\
-	  imu_weight=3 imu_weight_tracker=0.02
-
+	  quiet=1 nomt=1 \
+          savefile_tail=nt_${dataname}\
+	  imu_weight=3 imu_weight_tracker=0.1 stereo_weight=2
 
 

@@ -135,6 +135,7 @@ double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, 
     
 //     Vec9 res_PVPhi;
     res_PVPhi.block(0,0,3,1) = res_p;
+//     res_PVPhi.block(0,0,3,1) = Vec3::Zero();
     res_PVPhi.block(3,0,3,1) = Vec3::Zero();
     res_PVPhi.block(6,0,3,1) = res_phi;
     
@@ -158,8 +159,15 @@ double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, 
     Weight.block(0,0,3,3) = Cov.block(0,0,3,3);
     Weight.block(3,3,3,3) = Cov.block(6,6,3,3);
 //     Weight.block(6,6,3,3) = Cov.block(3,3,3,3);
-    Weight = Mat66::Identity()*Weight.inverse();
+    Mat66 Weight2 = Mat66::Zero();
+    for(int i=0;i<6;++i){
+	Weight2(i,i) = Weight(i,i);
+    }
+    Weight = Weight2.inverse();
     Weight *=(imu_weight_tracker*imu_weight_tracker);
+//     for(int i=0;i<3;++i){
+//        Weight(i,i) *= 0.2;
+//     }
 //     Weight *=(bei*bei);
     
     Vec6 b_1 = Vec6::Zero();
@@ -196,7 +204,9 @@ double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, 
     b_out.segment<3>(0) *= SCALE_XI_TRANS;
     b_out.segment<3>(3) *= SCALE_XI_ROT;
 //     b_out.segment<3>(6) *= SCALE_V;
-    
+//     LOG(INFO)<<"J_2: \n"<<J_2;
+//     LOG(INFO)<<"weight: \n"<<Weight;
+//     LOG(INFO)<<"b_1: "<<b_1.transpose();
 //     LOG(INFO)<<"H_out: \n"<<H_out;
 //     LOG(INFO)<<"b_out: \n"<<b_out.transpose();
 //     exit(1);
@@ -975,8 +985,11 @@ bool CoarseTracker::trackNewestCoarse(
 		Mat66 H_imu;
 		Vec6 b_imu;
 		Vec9 res_PVPhi;
-		double res_imu_old = calcIMUResAndGS(H_imu, b_imu, refToNew_current, IMU_preintegrator,res_PVPhi,resOld[0]);
-		LOG(INFO)<<"res_imu_old: "<<res_imu_old<<" resOld[0]: "<<resOld[0]<<" resOld[1]: "<<resOld[0];
+		double res_imu_old = 0;
+		if(lvl==0){
+		    res_imu_old = calcIMUResAndGS(H_imu, b_imu, refToNew_current, IMU_preintegrator,res_PVPhi,resOld[0]);
+// 		    LOG(INFO)<<"res_imu_old: "<<res_imu_old<<" resOld[0]: "<<resOld[0]<<" resOld[1]: "<<resOld[0];
+		}
 	    
 		float lambda = 0.01;
 
@@ -998,7 +1011,11 @@ bool CoarseTracker::trackNewestCoarse(
 			Mat88 Hl = H;
 // 			Hl = Mat88::Zero();
 // 			b = Vec8::Zero();
-			if(imu_use_flag&&imu_track_flag&&imu_track_ready){
+// 			if(lvl==0){
+// 			    LOG(INFO)<<"H_image: \n"<<H;
+// 			    LOG(INFO)<<"b_image: "<<b.transpose();
+// 			}
+			if(imu_use_flag&&imu_track_flag&&imu_track_ready&&lvl==0){
 			  Hl.block(0,0,6,6) = Hl.block(0,0,6,6) + H_imu;
 			  b.block(0,0,6,1) = b.block(0,0,6,1) + b_imu.block(0,0,6,1);
 			}
@@ -1057,10 +1074,13 @@ bool CoarseTracker::trackNewestCoarse(
 			aff_g2l_new.b += incScaled[7];
 
 			Vec6 resNew = calcRes(lvl, refToNew_new, aff_g2l_new, setting_coarseCutoffTH*levelCutoffRepeat);
-			double res_imu_new = calcIMUResAndGS(H_imu, b_imu, refToNew_new, IMU_preintegrator,res_PVPhi,resNew[0]);
+			double res_imu_new;
+			if(lvl == 0){
+			  res_imu_new = calcIMUResAndGS(H_imu, b_imu, refToNew_new, IMU_preintegrator,res_PVPhi,resNew[0]);
+			}
 
 			bool accept = (resNew[0] / resNew[1]) < (resOld[0] / resOld[1]);
-			if(imu_use_flag&&imu_track_flag&&imu_track_ready){
+			if(imu_use_flag&&imu_track_flag&&imu_track_ready&&lvl==0){
 			  accept = (resNew[0] / resNew[1] * resOld[1] + res_imu_new) < (resOld[0] + res_imu_old);
 			}
 

@@ -129,7 +129,7 @@ void PangolinDSOViewer::run()
 	pangolin::Var<bool> settings_showKFCameras("ui.KFCam",false,true);
 	pangolin::Var<bool> settings_showCurrentCamera("ui.CurrCam",true,true);
 	pangolin::Var<bool> settings_showTrajectory("ui.Trajectory",true,true);
-	pangolin::Var<bool> settings_showFullTrajectory("ui.FullTrajectory",false,true);
+	pangolin::Var<bool> settings_showFullTrajectory("ui.FullTrajectory",true,true);
 	pangolin::Var<bool> settings_showActiveConstraints("ui.ActiveConst",true,true);
 	pangolin::Var<bool> settings_showAllConstraints("ui.AllConst",false,true);
 	pangolin::Var<bool> settings_showGroundTruth("ui.GroundTruth",true,true);
@@ -424,9 +424,10 @@ void PangolinDSOViewer::drawConstraints()
 		for(unsigned int i=0;i<gt_pose.size();i++)
 		{
 			if(gt_time_stamp[i]>run_time)break;
-			glVertex3f((float)(gt_pose[i].translation()[0]),
-					(float)(gt_pose[i].translation()[1]),
-					(float)(gt_pose[i].translation()[2]));
+			SE3 pose_show = T_WR_align*gt_pose[i]*T_BC;
+			glVertex3f((float)(pose_show.translation()[0]),
+					(float)(pose_show.translation()[1]),
+					(float)(pose_show.translation()[2]));
 		}
 		glEnd();
 	}
@@ -513,7 +514,7 @@ void PangolinDSOViewer::publishCamPose(FrameShell* frame,
 	if(!setting_render_display3D) return;
 
 	currentCam->setFromF(frame, HCalib);
-	allFramePoses.push_back((T_WR_align*SE3(T_WD.matrix()*frame->camToWorld.matrix()*T_WD.inverse().matrix())*T_BC.inverse()).translation().cast<float>());
+	allFramePoses.push_back((SE3(T_WD.matrix()*frame->camToWorld.matrix()*T_WD.inverse().matrix())).translation().cast<float>());
 }
 
 

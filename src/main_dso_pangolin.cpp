@@ -62,6 +62,7 @@ std::string calib0 = "";
 std::string calib1 = "";
 std::string T_stereo = "";
 std::string pic_timestamp = "";
+std::string pic_timestamp1 = "";
 double rescale = 1;
 bool reverse = false;
 bool disableROS = false;
@@ -333,10 +334,15 @@ void parseArgument(char* arg)
 		return;
 	}
 	
-	
 	if(1==sscanf(arg,"pic_timestamp=%s",buf))
 	{
 		pic_timestamp = buf;
+		return;
+	}
+	
+	if(1==sscanf(arg,"pic_timestamp1=%s",buf))
+	{
+		pic_timestamp1 = buf;
 		return;
 	}
 	
@@ -371,6 +377,11 @@ void parseArgument(char* arg)
 	if(1==sscanf(arg,"imu_weight=%f",&foption))
 	{
 		imu_weight = foption;
+		return;
+	}
+	if(1==sscanf(arg,"stereo_weight=%f",&foption))
+	{
+		stereo_weight = foption;
 		return;
 	}
 	if(1==sscanf(arg,"imu_weight_tracker=%f",&foption))
@@ -576,6 +587,20 @@ void getPicTimestamp(){
 		pic_time_stamp.push_back(time);
 	}
 	inf.close();
+	if(pic_timestamp1.size()>0){
+	    std::ifstream inf;
+	    inf.open(pic_timestamp1);
+	    std::string sline;
+	    std::getline(inf,sline);
+	    while(std::getline(inf,sline)){
+		    std::istringstream ss(sline);
+		    double time;
+		    ss>>time;
+		    time = time/1e9;
+		    pic_time_stamp_r.push_back(time);
+	    }
+	    inf.close();
+	}
 }
 
 int main( int argc, char** argv )
@@ -583,6 +608,7 @@ int main( int argc, char** argv )
 	//setlocale(LC_ALL, "");
 	imu_weight = 3;
 	imu_weight_tracker = 0.1;
+	stereo_weight = 2;
 	for(int i=1; i<argc;i++)
 		parseArgument(argv[i]);
 
@@ -605,12 +631,14 @@ int main( int argc, char** argv )
 	imu_track_flag = true;
 	use_optimize = true;
 	imu_track_ready = false;
+	use_Dmargin = false;
 	setting_initialIMUHessian = 0;
 	setting_initialScaleHessian = 0;
 	setting_initialbaHessian = 0;
 	setting_initialbgHessian = 0;
 	imu_lambda = 5;
 	d_min = sqrt(1.1);
+	setting_margWeightFac_imu = 0.25;
 	
 	getIMUdata_euroc();
 	getPicTimestamp();
@@ -748,7 +776,21 @@ int main( int argc, char** argv )
 
             int i = idsToPlay[ii];
 	    
-
+	    double time_l = pic_time_stamp[i];
+	    int index;
+	    if(pic_time_stamp_r.size()>0){
+		for(int i=0;i<pic_time_stamp_r.size();++i){
+		    if(pic_time_stamp_r[i]>=time_l||fabs(pic_time_stamp_r[i]-time_l)<0.01){
+			  index = i;
+			  break;					  				
+		    }
+		}
+	    }
+	    if(fabs(pic_time_stamp_r[index]-time_l)>0.01){continue;}
+// 	    LOG(INFO)<<"pic_time_stamp_r.size(): "<<pic_time_stamp_r.size()<<" pic_time_stamp.size(): "<<pic_time_stamp.size();
+// 	    LOG(INFO)<<std::fixed<<std::setprecision(9)<<"time_l: "<<time_l<<" time_r: "<<pic_time_stamp_r[index];
+// 	    LOG(INFO)<<"i: "<<i<<" index: "<<index;
+// 	    exit(1);
             ImageAndExposure* img;
 	    ImageAndExposure* img_right;
             if(preload){
@@ -757,7 +799,8 @@ int main( int argc, char** argv )
 	    }
             else{
                 img = reader->getImage(i);
-		img_right = reader_right->getImage(i);
+// 		img_right = reader_right->getImage(i);
+		img_right = reader_right->getImage(index);
 	    }
 
 

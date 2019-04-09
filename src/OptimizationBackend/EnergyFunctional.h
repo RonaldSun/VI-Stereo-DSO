@@ -106,12 +106,16 @@ public:
 	MatXX HM_imu;
 	VecX bM_imu;
 	
+	MatXX HM_bias;
+	VecX bM_bias;
+	
 	MatXX HM_imu_half;
 	VecX bM_imu_half;
 	
 	double s_middle = 1;
 	double s_last = 1;
 	double d_now = sqrt(1.1);
+	double d_half = sqrt(1.1);
 	bool side_last = true;//for d margin: true: upper s_middle false: below s_middle
 
 	int resInA, resInL, resInM;

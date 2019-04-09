@@ -30,7 +30,7 @@
  */
 
 #include "FullSystem/FullSystem.h"
- 
+  
 #include "stdio.h"
 #include "util/globalFuncs.h"
 #include <Eigen/LU>
@@ -300,7 +300,7 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	AffLight aff_last_2_l = AffLight(0,0);
 
 	std::vector<SE3,Eigen::aligned_allocator<SE3>> lastF_2_fh_tries;
-	if(allFrameHistory.size() == 2){
+	if(allFrameHistory.size() == 2||frameHessians.size()==1){
 // 		initializeFromInitializer(fh);
 		
 		lastF_2_fh_tries.push_back(SE3(Eigen::Matrix<double, 3, 3>::Identity(), Eigen::Matrix<double,3,1>::Zero() ));
@@ -1015,6 +1015,7 @@ void FullSystem::flagPointsForRemoval()
 void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* image_right, int id )
 {
 	LOG(INFO)<<"id: "<<id;
+	LOG(INFO)<<"M_num: "<<M_num<<" M_num2: "<<M_num2;
 	run_time = pic_time_stamp[id];
 	LOG(INFO)<<std::fixed<<std::setprecision(12)<<"run_time: "<<run_time;
 	if(isLost) return;
@@ -1032,7 +1033,6 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	shell->incoming_id = id;
 	fh->shell = shell;
 	fh_right->shell=shell;
-	allFrameHistory.push_back(shell);
 
 
 	// =========================== make Images / derivatives etc. =========================
@@ -1042,10 +1042,15 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	fh_right->makeImages(image_right->image,&Hcalib);
 	fh->frame_right = fh_right;
 	
-	fh->velocity = fh->shell->velocity = allFrameHistory.back()->velocity;
-	fh->bias_g = fh->shell->bias_g = allFrameHistory.back()->bias_g + allFrameHistory.back()->delta_bias_g;
-	fh->bias_a = fh->shell->bias_a = allFrameHistory.back()->bias_a + allFrameHistory.back()->delta_bias_a;
+	if(allFrameHistory.size()>0){
+	    fh->velocity = fh->shell->velocity = allFrameHistory.back()->velocity;
+	    fh->bias_g = fh->shell->bias_g = allFrameHistory.back()->bias_g + allFrameHistory.back()->delta_bias_g;
+	    fh->bias_a = fh->shell->bias_a = allFrameHistory.back()->bias_a + allFrameHistory.back()->delta_bias_a;
+	}
 	
+	allFrameHistory.push_back(shell);
+	
+// 	LOG(INFO)<<"fh->bias_a: "<<fh->bias_a.transpose();
 	if(!initialized)
 	{
 		// use initializer!
@@ -1102,6 +1107,8 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 // 			LOG(INFO)<<"R_wc * g_c: "<<(R_wc * g_c).transpose();
 // 			LOG(INFO)<<"R_wc: \n"<<R_wc;
 			SE3 T_wc(R_wc,Vec3::Zero());
+			
+			T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
 // 			LOG(INFO)<<"gt_pose.translation: "<<gt_pose[index2].translation().transpose();
 // 			SE3 T_wc(R_wc,(gt_pose[index2]*T_BC).translation());
 // 			SE3 T_wc = gt_pose[index2]*T_BC;
@@ -1117,6 +1124,8 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 			T_WD = Sim3(RxSO3(1,R_wd),Vec3::Zero());
 			initializeFromInitializer(fh);
 			initialized = true;
+			M_num = 0;
+			M_num2 = 0;
 // 			LOG(INFO)<<std::fixed<<std::setprecision(16)<<"run_time: "<<run_time;
 // 			LOG(INFO)<<"pose now: "<<(fh->shell->camToWorld*T_BC.inverse()).translation().transpose();
 // 			fh->velocity = gt_velocity[index2];
@@ -1200,8 +1209,11 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 					setting_kfGlobalWeight*setting_maxShiftWeightR *  sqrtf((double)tres[2]) / (wG[0]+hG[0]) +
 					setting_kfGlobalWeight*setting_maxShiftWeightRT * sqrtf((double)tres[3]) / (wG[0]+hG[0]) +
 					setting_kfGlobalWeight*setting_maxAffineWeight * fabs(logf((float)refToFh[0])) ;
-			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.45&&delta>0.5)
+// 			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.39&&delta>0.3f)
+			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.39&&(fh->velocity.norm()>0.3||delta>0.3f))
 				needToMakeKF = true;
+// 			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.45)
+// 				needToMakeKF = true;
 // 			LOG(INFO)<<"delta: "<<delta;
 // 			LOG(INFO)<<"tres: "<<tres.transpose()<<" refToFh[0]: "<<refToFh[0];
 

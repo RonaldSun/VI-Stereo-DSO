@@ -230,6 +230,7 @@ Mat33f K_right;
 std::vector<double> gt_time_stamp;
 std::vector<double> imu_time_stamp;
 std::vector<double> pic_time_stamp;
+std::vector<double> pic_time_stamp_r;
 SE3 T_BC;
 Mat33 GyrCov;
 Mat33 AccCov;
@@ -247,9 +248,14 @@ double imu_weight_tracker = 1;
 bool imu_use_flag = true;
 bool imu_track_flag = true;
 bool use_optimize = true;
+bool use_Dmargin = false;
 double d_min = sqrt(1.1);
 double imu_lambda = 2;
 bool imu_track_ready = false;
+double stereo_weight = 3;
+int M_num=0;
+int M_num2=0;
+double setting_margWeightFac_imu = 1;
 
 void handleKey(char k)
 {

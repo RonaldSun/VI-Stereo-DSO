@@ -15,6 +15,12 @@
 
 ![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_V2_03.png)
 
+- 20190409:
+
+![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/2019-04-09-V203.png)
+
+green line: groundtruth, redline: VI-Stereo-DSO
+
 ## P.S.
 
 Tests and evaluation in detail are needed.

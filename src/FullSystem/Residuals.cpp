@@ -305,6 +305,10 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 	Vec3f PRE_tTll_0 = T_C1C0.translation().cast<float>();
 
 	Mat33f PRE_RTll = T_C1C0.rotationMatrix().cast<float>();
+// 	Mat33f PRE_RTll_0 = T_C1C02.rotationMatrix().cast<float>();
+// 	Vec3f PRE_tTll_0 = T_C1C02.translation().cast<float>();
+// 
+// 	Mat33f PRE_RTll = T_C1C02.rotationMatrix().cast<float>();
 	Vec3f PRE_tTll = PRE_tTll_0;
 	Mat33f K = Mat33f::Zero();
 	K(0,0) = HCalib->fxl();
@@ -336,7 +340,7 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 		float Ku, Kv;
 		Vec3f KliP;
 
-		if(!projectPoint(point->u, point->v, point->idepth_zero_scaled, 0, 0,HCalib,
+		if(!projectPoint(point->u, point->v, point->idepth_zero_scaled/T_WD.scale(), 0, 0,HCalib,
 				PRE_RTll_0,PRE_tTll_0, drescale, u, v, Ku, Kv, KliP, new_idepth))
 			{ state_NewState = ResState::OOB; return state_energy; }
 
@@ -395,8 +399,8 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 		J->Jpdc[0] = Vec4f::Zero();
 		J->Jpdc[1] = Vec4f::Zero();
 
-		J->Jpdd[0] = d_d_x;
-		J->Jpdd[1] = d_d_y;
+		J->Jpdd[0] = d_d_x/T_WD.scale();
+		J->Jpdd[1] = d_d_y/T_WD.scale();
 
 	}
 
@@ -410,11 +414,11 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 	float JabJab_00=0, JabJab_01=0, JabJab_11=0;
 
 	float wJI2_sum = 0;
-	float lambda = 3;
+	float lambda = stereo_weight;
 	for(int idx=0;idx<patternNum;idx++)
 	{
 		float Ku, Kv;
-		if(!projectPoint(point->u+patternP[idx][0], point->v+patternP[idx][1], point->idepth_scaled, PRE_KRKiTll, PRE_KtTll, Ku, Kv))
+		if(!projectPoint(point->u+patternP[idx][0], point->v+patternP[idx][1], point->idepth_scaled/T_WD.scale(), PRE_KRKiTll, PRE_KtTll, Ku, Kv))
 			{ state_NewState = ResState::OOB; return state_energy; }
 
 		projectedTo[idx][0] = Ku;
