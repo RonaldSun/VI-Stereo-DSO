@@ -631,7 +631,7 @@ int main( int argc, char** argv )
 	imu_track_flag = true;
 	use_optimize = true;
 	imu_track_ready = false;
-	use_Dmargin = false;
+	use_Dmargin = true;
 	setting_initialIMUHessian = 0;
 	setting_initialScaleHessian = 0;
 	setting_initialbaHessian = 0;

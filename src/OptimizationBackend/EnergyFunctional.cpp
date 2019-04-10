@@ -1093,7 +1093,7 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	}else{
 	    di = (s_now+0.001)/s_last;
 	}
-	s_last = s_now;
+	s_last = s_now; 
 	if(di>d_now)d_now = di;
 	if(d_now>d_min) d_now = d_min;
 	LOG(INFO)<<"s_now: "<<s_now<<" s_middle: "<<s_middle<<" d_now: "<<d_now;
@@ -1254,7 +1254,7 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    bM_imu = bM_imu_half;
 // 	    s_middle = s_middle/d_now;
 	    s_middle = s_now;
-	    d_now = d_half;
+// 	    d_now = d_half;
 	    M_num2 = M_num;
 	    HM_imu_half.setZero();
 	    bM_imu_half.setZero();

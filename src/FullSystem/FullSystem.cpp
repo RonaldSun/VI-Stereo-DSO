@@ -1210,7 +1210,7 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 					setting_kfGlobalWeight*setting_maxShiftWeightRT * sqrtf((double)tres[3]) / (wG[0]+hG[0]) +
 					setting_kfGlobalWeight*setting_maxAffineWeight * fabs(logf((float)refToFh[0])) ;
 // 			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.39&&delta>0.3f)
-			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.39&&(fh->velocity.norm()>0.3||delta>0.3f))
+			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.45&&delta>0.5f)
 				needToMakeKF = true;
 // 			if(pic_time_stamp[fh->shell->incoming_id] - pic_time_stamp[coarseTracker->lastRef->shell->incoming_id]>=0.45)
 // 				needToMakeKF = true;
