@@ -263,7 +263,8 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 		T_WD_change  = Sim3::exp(Vec7::Zero());
 		if(imu_use_flag){
 // 		  T_WD = T_WD*change;
-		  T_WD_change  = Sim3::exp(stepfacC*step_twd);
+		  state_twd += stepfacC*step_twd;
+		  T_WD_change  = Sim3::exp(state_twd);
 // 		  Sim3 T_WD_temp = T_WD*T_WD_change;
 // 		  double s_temp = T_WD_temp.scale();
 // 		  double s_wd = T_WD.scale();
@@ -271,7 +272,12 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 // 		  if(s_new>d_min)s_new = d_min;
 // 		  if(s_new<1/d_min)s_new = 1/d_min;
 // 		  T_WD = Sim3(RxSO3(s_new*s_wd,T_WD_temp.rotationMatrix()),Vec3::Zero());+
-		  T_WD = T_WD*T_WD_change;
+		  T_WD = T_WD_l*T_WD_change;
+		  
+		  if(M_num2==0){
+		      T_WD_l = T_WD;
+		      state_twd.setZero();
+		  }
 // 		  LOG(INFO)<<"T_WD.scale(): "<<T_WD.scale();
 // 		  LOG(INFO)<<"T_WD.translation(): "<<T_WD.translation().transpose();
 		  
@@ -287,8 +293,8 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 			sumR += fh->step.segment<3>(3).squaredNorm();
 			if(imu_use_flag){
 			    fh->velocity += stepfacC*fh->step_imu.block(0,0,3,1);
-			    fh->delta_bias_g += fh->step_imu.block(3,0,3,1);
-			    fh->delta_bias_a += fh->step_imu.block(6,0,3,1);
+			    fh->delta_bias_g += stepfacC*fh->step_imu.block(3,0,3,1);
+			    fh->delta_bias_a += stepfacC*fh->step_imu.block(6,0,3,1);
 			    fh->shell->velocity = fh->velocity;
 			    fh->shell->delta_bias_g = fh->delta_bias_g;
 			    fh->shell->delta_bias_a = fh->delta_bias_a;

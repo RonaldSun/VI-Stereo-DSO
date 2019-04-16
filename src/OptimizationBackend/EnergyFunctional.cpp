@@ -257,15 +257,15 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 // 	Weight_sqrt = Weight_sqrt*bei/imu_lambda;
 // 	LOG(INFO)<<"b_1: "<<b_1.transpose();
 // 	LOG(INFO)<<"b_1: "<<b_1.transpose();
-	Mat44 T_tempj = T_BC.matrix()*T_WD.matrix()*worldToCam_j2.matrix();
+	Mat44 T_tempj = T_BC.matrix()*T_WD_l.matrix()*worldToCam_j.matrix();
 	Mat1515 J_relj = Mat1515::Identity();
 	J_relj.block(0,0,6,6) = (-1*Sim3(T_tempj).Adj()).block(0,0,6,6);
-	Mat44 T_tempi = T_BC.matrix()*T_WD.matrix()*worldToCam_i2.matrix();
+	Mat44 T_tempi = T_BC.matrix()*T_WD_l.matrix()*worldToCam_i.matrix();
 	Mat1515 J_reli = Mat1515::Identity();
 	J_reli.block(0,0,6,6) = (-1*Sim3(T_tempi).Adj()).block(0,0,6,6);
 	
-	Mat77 J_poseb_wd_i= Sim3(T_tempi).Adj()-Sim3(T_BC.matrix()*T_WD.matrix()).Adj();
-	Mat77 J_poseb_wd_j= Sim3(T_tempj).Adj()-Sim3(T_BC.matrix()*T_WD.matrix()).Adj();
+	Mat77 J_poseb_wd_i= Sim3(T_tempi).Adj()-Sim3(T_BC.matrix()*T_WD_l.matrix()).Adj();
+	Mat77 J_poseb_wd_j= Sim3(T_tempj).Adj()-Sim3(T_BC.matrix()*T_WD_l.matrix()).Adj();
 	J_poseb_wd_i.block(0,0,7,3) = Mat73::Zero();
 	J_poseb_wd_j.block(0,0,7,3) = Mat73::Zero();
 // 	J_poseb_wd_i.block(0,3,7,3) = Mat73::Zero();
@@ -293,8 +293,8 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	Mat97 J_res_posebj = Mat97::Zero();
 	J_res_posebj.block(0,0,9,6) = J_imuj.block(0,0,9,6);
 // 	LOG(INFO)<<"5555555";
-	Mat66 J_xi_r_l_i = worldToCam_i2.Adj().inverse();
-	Mat66 J_xi_r_l_j = worldToCam_j2.Adj().inverse();
+	Mat66 J_xi_r_l_i = worldToCam_i.Adj().inverse();
+	Mat66 J_xi_r_l_j = worldToCam_j.Adj().inverse();
 	Mat1515 J_r_l_i = Mat1515::Identity();
 	Mat1515 J_r_l_j = Mat1515::Identity();
 	J_r_l_i.block(0,0,6,6) = J_xi_r_l_i;
@@ -871,11 +871,15 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	
 	MatXX HM_change = MatXX::Zero(CPARS+7+nFrames*17, CPARS+7+nFrames*17);
 	VecX bM_change = VecX::Zero(CPARS+7+nFrames*17);
+	
+	MatXX HM_change_half = MatXX::Zero(CPARS+7+nFrames*17, CPARS+7+nFrames*17);
+	VecX bM_change_half = VecX::Zero(CPARS+7+nFrames*17);
 // 	LOG(INFO)<<"fh->idx: "<<fh->idx;
 	double mar_weight = 0.5;
 	for(int i=fh->idx-1;i<fh->idx+1;i++){
 	    if(i<0)continue;
 	    MatXX J_all = MatXX::Zero(9, CPARS+7+nFrames*17);
+	    MatXX J_all_half = MatXX::Zero(9, CPARS+7+nFrames*17);
 	    VecX r_all = VecX::Zero(9);
 	    IMUPreintegrator IMU_preintegrator;
 	    IMU_preintegrator.reset();
@@ -1025,27 +1029,38 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    b_1.block(3,0,3,1) = res_phi2;
 	    b_1.block(6,0,3,1) = res_v2;
 	   
-	    Mat44 T_tempj = T_BC.matrix()*T_WD.matrix()*worldToCam_j2.matrix();
+	    Mat44 T_tempj = T_BC.matrix()*T_WD_l.matrix()*worldToCam_j.matrix();
 	    Mat1515 J_relj = Mat1515::Identity();
 	    J_relj.block(0,0,6,6) = (-1*Sim3(T_tempj).Adj()).block(0,0,6,6);
-	    Mat44 T_tempi = T_BC.matrix()*T_WD.matrix()*worldToCam_i2.matrix();
+	    Mat44 T_tempi = T_BC.matrix()*T_WD_l.matrix()*worldToCam_i.matrix();
 	    Mat1515 J_reli = Mat1515::Identity();
 	    J_reli.block(0,0,6,6) = (-1*Sim3(T_tempi).Adj()).block(0,0,6,6);
 	    
-	    Mat77 J_poseb_wd_i= Sim3(T_tempi).Adj()-Sim3(T_BC.matrix()*T_WD.matrix()).Adj();
-	    Mat77 J_poseb_wd_j= Sim3(T_tempj).Adj()-Sim3(T_BC.matrix()*T_WD.matrix()).Adj();
+	    Mat44 T_tempj_half = T_BC.matrix()*T_WD_l_half.matrix()*worldToCam_j.matrix();
+	    Mat1515 J_relj_half = Mat1515::Identity();
+	    J_relj_half.block(0,0,6,6) = (-1*Sim3(T_tempj_half).Adj()).block(0,0,6,6);
+	    Mat44 T_tempi_half = T_BC.matrix()*T_WD_l_half.matrix()*worldToCam_i.matrix();
+	    Mat1515 J_reli_half = Mat1515::Identity();
+	    J_reli_half.block(0,0,6,6) = (-1*Sim3(T_tempi_half).Adj()).block(0,0,6,6);
+	    
+	    Mat77 J_poseb_wd_i= Sim3(T_tempi).Adj()-Sim3(T_BC.matrix()*T_WD_l.matrix()).Adj();
+	    Mat77 J_poseb_wd_j= Sim3(T_tempj).Adj()-Sim3(T_BC.matrix()*T_WD_l.matrix()).Adj();
+	    Mat77 J_poseb_wd_i_half= Sim3(T_tempi_half).Adj()-Sim3(T_BC.matrix()*T_WD_l_half.matrix()).Adj();
+	    Mat77 J_poseb_wd_j_half= Sim3(T_tempj_half).Adj()-Sim3(T_BC.matrix()*T_WD_l_half.matrix()).Adj();
 	    J_poseb_wd_i.block(0,0,7,3) = Mat73::Zero();
 	    J_poseb_wd_j.block(0,0,7,3) = Mat73::Zero();
 // 	    J_poseb_wd_i.block(0,3,7,3) = Mat73::Zero();
 // 	    J_poseb_wd_j.block(0,3,7,3) = Mat73::Zero();
+	    J_poseb_wd_i_half.block(0,0,7,3) = Mat73::Zero();
+	    J_poseb_wd_j_half.block(0,0,7,3) = Mat73::Zero();
 	    
 	    Mat97 J_res_posebi = Mat97::Zero();
 	    J_res_posebi.block(0,0,9,6) = J_imui.block(0,0,9,6);
 	    Mat97 J_res_posebj = Mat97::Zero();
 	    J_res_posebj.block(0,0,9,6) = J_imuj.block(0,0,9,6);
 
-	    Mat66 J_xi_r_l_i = worldToCam_i2.Adj().inverse();
-	    Mat66 J_xi_r_l_j = worldToCam_j2.Adj().inverse();
+	    Mat66 J_xi_r_l_i = worldToCam_i.Adj().inverse();
+	    Mat66 J_xi_r_l_j = worldToCam_j.Adj().inverse();
 	    Mat1515 J_r_l_i = Mat1515::Identity();
 	    Mat1515 J_r_l_j = Mat1515::Identity();
 	    J_r_l_i.block(0,0,6,6) = J_xi_r_l_i;
@@ -1058,12 +1073,24 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    J_all.block(0,CPARS+7+i*17,9,6) += J_imui.block(0,0,9,6)*J_reli.block(0,0,6,6)*J_xi_r_l_i;
 	    J_all.block(0,CPARS+7+(i+1)*17,9,6) += J_imuj.block(0,0,9,6)*J_relj.block(0,0,6,6)*J_xi_r_l_j;
 	    J_all.block(0,CPARS+7+i*17+8,9,9) += J_imui.block(0,6,9,9);
-	    J_all.block(0,CPARS+7+(i+1)*17+8,9,9) += J_imuj.block(0,6,9,9);	
+	    J_all.block(0,CPARS+7+(i+1)*17+8,9,9) += J_imuj.block(0,6,9,9);
+	    
+	    J_all_half.block(0,CPARS,9,7) += J_res_posebi*J_poseb_wd_i_half;
+	    J_all_half.block(0,CPARS,9,7) += J_res_posebj*J_poseb_wd_j_half;
+	    J_all_half.block(0,CPARS,9,3) = Mat93::Zero();
+	    
+	    J_all_half.block(0,CPARS+7+i*17,9,6) += J_imui.block(0,0,9,6)*J_reli_half.block(0,0,6,6)*J_xi_r_l_i;
+	    J_all_half.block(0,CPARS+7+(i+1)*17,9,6) += J_imuj.block(0,0,9,6)*J_relj_half.block(0,0,6,6)*J_xi_r_l_j;
+	    J_all_half.block(0,CPARS+7+i*17+8,9,9) += J_imui.block(0,6,9,9);
+	    J_all_half.block(0,CPARS+7+(i+1)*17+8,9,9) += J_imuj.block(0,6,9,9);
 	    
 	    r_all.block(0,0,9,1) += b_1;
 	    
 	    HM_change += (J_all.transpose()*Weight*J_all);
 	    bM_change += (J_all.transpose()*Weight*r_all);
+	    
+	    HM_change_half = HM_change_half*setting_margWeightFac_imu;
+	    bM_change_half = bM_change_half*setting_margWeightFac_imu;
 	    
 	    MatXX J_all2 = MatXX::Zero(6, CPARS+7+nFrames*17);
 	    VecX r_all2 = VecX::Zero(6);
@@ -1086,6 +1113,24 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	}
 	HM_change = HM_change*setting_margWeightFac_imu;
 	bM_change = bM_change*setting_margWeightFac_imu;
+	
+	HM_change_half = HM_change_half*setting_margWeightFac_imu;
+	bM_change_half = bM_change_half*setting_margWeightFac_imu;
+	
+	VecX StitchedDelta = getStitchedDeltaF();
+	VecX delta_b = VecX::Zero(CPARS+7+nFrames*17);
+// 	for(int i=0;i<nFrames;++i){
+// 	    delta_b.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+i*8,0,6,1);
+// 	}
+	delta_b.block(CPARS,0,7,1) = Sim3(T_WD_l.inverse()*T_WD).log();
+	
+	    
+	VecX delta_b_half = delta_b;
+	delta_b_half.block(CPARS,0,7,1) = Sim3(T_WD_l_half.inverse()*T_WD).log();
+	
+	bM_change -= HM_change*delta_b;
+	bM_change_half -= HM_change_half*delta_b_half;
+	
 	double s_now = T_WD.scale();
 	double di=1;
 	if(s_last>s_now){
@@ -1096,12 +1141,12 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	s_last = s_now; 
 	if(di>d_now)d_now = di;
 	if(d_now>d_min) d_now = d_min;
-	LOG(INFO)<<"s_now: "<<s_now<<" s_middle: "<<s_middle<<" d_now: "<<d_now;
+	LOG(INFO)<<"s_now: "<<s_now<<" s_middle: "<<s_middle<<" d_now: "<<d_now<<" scale_l: "<<T_WD_l.scale();
 	if(di>d_half)d_half = di;
 	if(d_half>d_min) d_half = d_min;
 	
 	bool side = s_now>s_middle;
-	if(side!=side_last){
+	if(side!=side_last||M_num==0){
 	    HM_imu_half.block(CPARS+6,0,1,HM_imu_half.cols()) = MatXX::Zero(1,HM_imu_half.cols());
 	    HM_imu_half.block(0,CPARS+6,HM_imu_half.rows(),1) = MatXX::Zero(HM_imu_half.rows(),1);
 	    bM_imu_half[CPARS+6] = 0;
@@ -1115,12 +1160,14 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    if(d_half>d_min)d_half = d_min;
 	    
 	    M_num = 0;
+	    T_WD_l_half = T_WD;
+// 	    LOG(INFO)<<"set half scale: "<<T_WD_l_half.scale();
 	}
 	M_num++;
 	side_last = side;
 	
-	HM_imu_half += HM_change;
- 	bM_imu_half += bM_change;
+	HM_imu_half += HM_change_half;
+ 	bM_imu_half += bM_change_half;
 	
 	if((int)fh->idx != (int)frames.size()-1)
 	{
@@ -1218,6 +1265,9 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	HM_bias = 0.5*(HMScaled.topLeftCorner(ndim,ndim) + HMScaled.topLeftCorner(ndim,ndim).transpose());
 	bM_bias = bMScaled.head(ndim);
 	}
+	if(M_num2>25){
+	    use_Dmargin = false;
+	}
 // 	if(s_now>s_middle*d_now){
 // 	    HM_imu = HM_imu_half;
 // 	    bM_imu = bM_imu_half;
@@ -1249,7 +1299,7 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 // 	    if(d_half>d_min)d_half = d_min;
 // 	    M_num = 0;
 // 	}else
-	  if(M_num>20&&(s_now>s_middle*d_now||s_now<s_middle/d_now)&&use_Dmargin){
+	  if(/*M_num>20&&*/(s_now>s_middle*d_now||s_now<s_middle/d_now)&&use_Dmargin){
 	    HM_imu = HM_imu_half;
 	    bM_imu = bM_imu_half;
 // 	    s_middle = s_middle/d_now;
@@ -1267,6 +1317,10 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	    d_half = di;
 	    if(d_half>d_min)d_half = d_min;
 	    M_num = 0;
+	    T_WD_l = T_WD_l_half;
+	    state_twd = Sim3(T_WD_l.inverse()*T_WD).log();
+	    
+// 	    LOG(INFO)<<"set l scale: "<<T_WD_l.scale();
 	  }
 	  else{
 	    HM_imu += HM_change;
@@ -1654,10 +1708,16 @@ void EnergyFunctional::solveSystemF(int iteration, double lambda, CalibHessian* 
 	
 	VecX StitchedDelta = getStitchedDeltaF();
 	VecX StitchedDelta2 = VecX::Zero(CPARS+7+nFrames*17);
-	StitchedDelta2.block(0,0,CPARS,1) = StitchedDelta.block(0,0,CPARS,1);
-	for(int i=0;i<nFrames;++i){
-	    StitchedDelta2.block(CPARS+7+17*i,0,8,1) = StitchedDelta.block(CPARS+8*i,0,8,1);
-	}
+// 	StitchedDelta2.block(0,0,CPARS,1) = StitchedDelta.block(0,0,CPARS,1);
+// 	for(int i=0;i<nFrames;++i){
+// 	    StitchedDelta2.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+8*i,0,6,1);
+// 	}
+// 	for(int i=0;i<nFrames;++i){
+// 	    VecX temp = frames[i]->data->get_state();
+// 	    StitchedDelta2.block(CPARS+7+17*i,0,6,1) = temp.block(0,0,6,1);
+// 	}
+	StitchedDelta2.block(CPARS,0,7,1) = state_twd;
+	
 	VecX bM_top_imu = (bM_imu + HM_imu*StitchedDelta2); 
 
 	MatXX H_imu;
@@ -1772,7 +1832,8 @@ void EnergyFunctional::solveSystemF(int iteration, double lambda, CalibHessian* 
 	    bFinal_top2.block(CPARS+7+17*i+8,0,9,1) += b_imu.block(7+15*i+6,0,9,1);
 	}
 	HFinal_top2 += (HM_imu + HM_bias);
-	bFinal_top2 += (bM_imu + bM_bias);
+// 	bFinal_top2 += (bM_imu + bM_bias);
+	bFinal_top2 += (bM_top_imu + bM_bias);
 	VecX x = VecX::Zero(CPARS+8*nFrames);
 	VecX x2= VecX::Zero(CPARS+7+17*nFrames);
 	VecX x3= VecX::Zero(CPARS+7+17*nFrames);

@@ -300,9 +300,9 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	AffLight aff_last_2_l = AffLight(0,0);
 
 	std::vector<SE3,Eigen::aligned_allocator<SE3>> lastF_2_fh_tries;
-	if(allFrameHistory.size() == 2||frameHessians.size()==1){
+	if(allFrameHistory.size() == 2||first_track_flag==false/*frameHessians.size()==1*/){
 // 		initializeFromInitializer(fh);
-		
+		first_track_flag = true;
 		lastF_2_fh_tries.push_back(SE3(Eigen::Matrix<double, 3, 3>::Identity(), Eigen::Matrix<double,3,1>::Zero() ));
 		
 		for(float rotDelta=0.02; rotDelta < 0.05; rotDelta = rotDelta + 0.02)
@@ -445,7 +445,9 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 					coarseTracker->lastResiduals[3],
 					coarseTracker->lastResiduals[4]);
 		}
-
+// 		if(i>10&&frameHessians.size()==1){
+// 		  initFailed = true;
+// 		}
 
 		// do we have a new winner?
 		if(trackingIsGood && std::isfinite((float)coarseTracker->lastResiduals[0]) && !(coarseTracker->lastResiduals[0] >=  achievedRes[0]))
@@ -472,7 +474,15 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 		    break;
 
 	}
-
+// 	if(frameHessians.size()==1){
+// 	    if(!haveOneGood){
+// 	      initFailed = true;
+// 	    }
+// 	    LOG(INFO)<<"achievedRes[0]: "<<achievedRes[0];
+// 	    if(achievedRes[0]>11){
+// 	      initFailed = true;
+// 	    }
+// 	}
 	if(!haveOneGood)
 	{
         printf("BIG ERROR! tracking failed entirely. Take predictred pose and hope we may somehow recover.\n");
@@ -1122,6 +1132,10 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 			Mat33 R_wd = Mat33::Identity();
 		
 			T_WD = Sim3(RxSO3(1,R_wd),Vec3::Zero());
+			T_WD_l = T_WD;
+			T_WD_l_half = T_WD;
+			state_twd.setZero();
+			
 			initializeFromInitializer(fh);
 			initialized = true;
 			M_num = 0;
@@ -1625,8 +1639,9 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 		pt->idepth_max = pt->idepth_max_stereo;
 		idepthStereo = pt->idepth_stereo;
 		
+		double d_mid = 0.5*(1/pt->idepth_min+1/pt->idepth_max);
 		if(!std::isfinite(pt->energyTH) || !std::isfinite(pt->idepth_min) || !std::isfinite(pt->idepth_max)
-				|| pt->idepth_min < 0 || pt->idepth_max < 0)
+				||d_mid<0||d_mid>100/*|| pt->idepth_min < 0 || pt->idepth_max < 0*/)
 		{
 		    delete pt;
 		    continue;
@@ -1705,6 +1720,7 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 
 // 	initialized=true;
 	printf("INITIALIZE FROM INITIALIZER (%d pts)!\n", (int)firstFrame->pointHessians.size());
+// 	if((int)firstFrame->pointHessians.size()<600)initFailed=true;
 }
 
 void FullSystem::makeNewTraces(FrameHessian* newFrame, float* gtDepth)

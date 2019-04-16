@@ -855,6 +855,7 @@ int main( int argc, char** argv )
                     fullSystem->outputWrapper = wraps;
 
                     setting_fullResetRequested=false;
+		    first_track_flag = false;
                 }
             }
 

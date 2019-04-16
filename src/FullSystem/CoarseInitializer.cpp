@@ -1046,7 +1046,7 @@ void CoarseInitializer::setFirstStereo(	CalibHessian* HCalib, FrameHessian* newF
 // 	}
 // 	f2.close();
 	
-// 	makeNN();
+	makeNN();
 
 	thisToNext=SE3();
 	snapped = false;

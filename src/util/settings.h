@@ -233,12 +233,15 @@ extern Mat33 AccCov;
 extern Mat33 GyrRandomWalkNoise;
 extern Mat33 AccRandomWalkNoise;
 extern Sim3 T_WD;
+extern Sim3 T_WD_l;
+extern Sim3 T_WD_l_half;
 extern Sim3 T_WD_change;
 extern double G_norm;
 extern int index_align;
 extern SE3 T_WR_align;
 extern double run_time;
 extern Vec7 step_twd;
+extern Vec7 state_twd;
 extern double imu_weight;
 extern double imu_weight_tracker;
 extern bool imu_use_flag;
@@ -252,6 +255,8 @@ extern double stereo_weight;
 extern int M_num;
 extern int M_num2;
 extern double setting_margWeightFac_imu;
+extern bool first_track_flag;
+
 
 //#define patternNum staticPatternNum[setting_pattern]
 //#define patternP staticPattern[setting_pattern]

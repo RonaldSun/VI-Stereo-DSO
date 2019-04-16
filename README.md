@@ -7,6 +7,14 @@
 
 ## Experiments
 
+- 20190416
+
+Apply First Estimates Jacobians to scale to maintain consistency.
+
+EuRoC MH01:
+
+![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/MH01.png)
+
 - EuRoC V1_03:
 
 ![](https://github.com/RonaldSun/VI-Stereo-DSO/blob/master/pic/euroc_v1_03.png)

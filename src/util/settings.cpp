@@ -237,12 +237,15 @@ Mat33 AccCov;
 Mat33 GyrRandomWalkNoise;
 Mat33 AccRandomWalkNoise;
 Sim3 T_WD;
+Sim3 T_WD_l;
+Sim3 T_WD_l_half;
 Sim3 T_WD_change;
 double G_norm;
 int index_align;
 SE3 T_WR_align = SE3();
 double run_time=0;
 Vec7 step_twd = Vec7::Zero();
+Vec7 state_twd = Vec7::Zero();
 double imu_weight = 1;
 double imu_weight_tracker = 1;
 bool imu_use_flag = true;
@@ -256,6 +259,7 @@ double stereo_weight = 3;
 int M_num=0;
 int M_num2=0;
 double setting_margWeightFac_imu = 1;
+bool first_track_flag = false;
 
 void handleKey(char k)
 {
