@@ -1,11 +1,11 @@
 #!/bin/bash
 #usage: python xxx.py file_name
-dataname="MH_01_easy"
+#dataname="MH_01_easy"
 #dataname="MH_02_easy"
 #dataname="MH_03_medium"
 #dataname="MH_04_difficult"
 #dataname="MH_05_difficult"
-#dataname="V2_03_difficult"
+dataname="V2_03_difficult"
 #dataname="V1_03_difficult"
     # run dso
      ./build/bin/dso_dataset \
@@ -21,6 +21,6 @@ dataname="MH_01_easy"
  	  preset=0 mode=1 \
 	  quiet=1 nomt=1 \
           savefile_tail=nt_${dataname}\
-	  imu_weight=3 imu_weight_tracker=0.1 stereo_weight=2
+	  imu_weight=6 imu_weight_tracker=0.6 stereo_weight=0.5
 
 

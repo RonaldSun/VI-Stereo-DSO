@@ -418,6 +418,13 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	int tryIterations=0;
 	for(unsigned int i=0;i<lastF_2_fh_tries.size();i++)
 	{
+		if(frameHessians.size()<setting_maxFrames-2){
+		      if(i>0){
+			initFailed = true;
+			first_track_flag = false;
+		      }
+
+		  }
 		AffLight aff_g2l_this = aff_last_2_l;
 		SE3 lastF_2_fh_this = lastF_2_fh_tries[i];
 // 		LOG(INFO)<<"lastF_2_fh_this: "<<lastF_2_fh_this.translation().transpose();
@@ -1175,6 +1182,14 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 // 		f1.open(dsoposefile,std::ios::out);
 // 		f1.close();
 // 		savetrajectory(T);
+		std::ofstream f1;
+		std::string dsoposefile = "./data/"+savefile_tail+".txt";
+		f1.open(dsoposefile,std::ios::out);
+		f1.close();
+		std::ofstream f2;
+		std::string gtfile = "./data/"+savefile_tail+"_gt.txt";
+		f2.open(gtfile,std::ios::out);
+		f2.close();
 		return;
 	}
 	else	// do front-end operation.
@@ -1253,7 +1268,9 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 // 		LOG(INFO)<<"fh->shell->trackingRef->camToWorld : "<<fh->shell->trackingRef->camToWorld.translation().transpose();
 // 		exit(1);
 		
-		Sophus::Matrix4d T = shell->camToWorld.matrix();
+// 		Sophus::Matrix4d T = shell->camToWorld.matrix();
+		Sophus::Matrix4d T = T_WD.matrix()*shell->camToWorld.matrix()*T_WD.inverse().matrix();
+		savetrajectory_tum(SE3(T),run_time);
 // 		savetrajectory(T);
 		
 		return;
@@ -1268,6 +1285,43 @@ void FullSystem::savetrajectory(const Sophus::Matrix4d &T){
 	<<T(1,0)<<" "<<T(1,1)<<" "<<T(1,2)<<" "<<T(1,3)<<" "
 	<<T(2,0)<<" "<<T(2,1)<<" "<<T(2,2)<<" "<<T(2,3)<<std::endl;
 	f1.close();
+}
+void FullSystem::savetrajectory_tum(const SE3 &T, double time){
+	
+	std::ofstream f1;
+	std::string dsoposefile = "./data/"+savefile_tail+".txt";
+	f1.open(dsoposefile,std::ios::out|std::ios::app);
+	
+	Eigen::Quaterniond q = Eigen::Quaterniond(T.rotationMatrix());
+	Vec4 q4 = q.coeffs();
+	Vec3 t = T.translation();
+	
+	f1<<std::fixed<<std::setprecision(9)<<time<<" "
+	<<t(0)<<" "<<t(1)<<" "<<t(2)<<" "<<q4(0)<<" "<<q4(1)<<" "<<q4(2)<<" "<<q4(3)<<std::endl;
+	f1.close();
+	
+	int index2=0;
+	if(gt_time_stamp.size()>0){
+	    for(int i=0;i<gt_time_stamp.size();++i){
+		if(gt_time_stamp[i]>=time||fabs(gt_time_stamp[i]-time)<0.001){
+		      index2 = i;
+		      break;					  				
+		}
+	    }
+	}
+	if(fabs(gt_time_stamp[index2]-time)<0.001){
+	    std::ofstream f2;
+	    std::string gtfile = "./data/"+savefile_tail+"_gt.txt";
+	    f2.open(gtfile,std::ios::out|std::ios::app);
+	    
+	    SE3 gt_C = T_WR_align*gt_pose[index2]*T_BC;
+	    q = Eigen::Quaterniond(gt_C.rotationMatrix());
+	    q4 = q.coeffs();
+	    t = gt_C.translation();
+	    f2<<std::fixed<<std::setprecision(9)<<gt_time_stamp[index2]<<" "
+	    <<t(0)<<" "<<t(1)<<" "<<t(2)<<" "<<q4(0)<<" "<<q4(1)<<" "<<q4(2)<<" "<<q4(3)<<std::endl;
+	    f2.close();
+	}
 }
 
 void FullSystem::deliverTrackedFrame(FrameHessian* fh, FrameHessian* fh_right, bool needKF)
@@ -1641,7 +1695,7 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 		
 		double d_mid = 0.5*(1/pt->idepth_min+1/pt->idepth_max);
 		if(!std::isfinite(pt->energyTH) || !std::isfinite(pt->idepth_min) || !std::isfinite(pt->idepth_max)
-				||d_mid<0||d_mid>100/*|| pt->idepth_min < 0 || pt->idepth_max < 0*/)
+				/*||d_mid<0||d_mid>100*/|| pt->idepth_min < 0 || pt->idepth_max < 0)
 		{
 		    delete pt;
 		    continue;

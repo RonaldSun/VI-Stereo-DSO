@@ -59,11 +59,32 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	double time_end = pic_time_stamp[frames[i+1]->data->shell->incoming_id];
 	double dt = time_end-time_start;
 	
-	if(dt>0.5)continue;
+// 	if(dt>0.5)continue;
 	count_imu_res++;
 // 	LOG(INFO)<<"dt: "<<dt;
 	FrameHessian* Framei = frames[i]->data;
 	FrameHessian* Framej = frames[i+1]->data;
+	
+	//bias model
+	MatXX J_all2 = MatXX::Zero(6, 7+nFrames*15);
+	VecX r_all2 = VecX::Zero(6);
+	
+	r_all2.block(0,0,3,1) = Framej->bias_g+Framej->delta_bias_g - (Framei->bias_g+Framei->delta_bias_g);
+	r_all2.block(3,0,3,1) = Framej->bias_a+Framej->delta_bias_a - (Framei->bias_a+Framei->delta_bias_a);
+	
+	J_all2.block(0,7+i*15+9,3,3) = -Mat33::Identity();
+	J_all2.block(0,7+(i+1)*15+9,3,3) = Mat33::Identity();
+	J_all2.block(3,7+i*15+12,3,3) = -Mat33::Identity();
+	J_all2.block(3,7+(i+1)*15+12,3,3) = Mat33::Identity();
+	Mat66 Cov_bias = Mat66::Zero();
+	Cov_bias.block(0,0,3,3) = GyrRandomWalkNoise*dt;
+	Cov_bias.block(3,3,3,3) = AccRandomWalkNoise*dt;
+	Mat66 weight_bias = Mat66::Identity()*imu_weight*imu_weight*Cov_bias.inverse();
+// 	weight_bias *= (bei*bei);
+	H += J_all2.transpose()*weight_bias*J_all2;
+	b += J_all2.transpose()*weight_bias*r_all2;
+	
+	if(dt>0.5)continue;
 	
 	SE3 worldToCam_i = Framei->get_worldToCam_evalPT();
 	SE3 worldToCam_j = Framej->get_worldToCam_evalPT();
@@ -311,24 +332,24 @@ void EnergyFunctional::getIMUHessian(MatXX &H, VecX &b){
 	H += (J_all.transpose()*Weight*J_all);
 	b += (J_all.transpose()*Weight*r_all);
 	
-	//bias model
-	MatXX J_all2 = MatXX::Zero(6, 7+nFrames*15);
-	VecX r_all2 = VecX::Zero(6);
-	
-	r_all2.block(0,0,3,1) = Framej->bias_g+Framej->delta_bias_g - (Framei->bias_g+Framei->delta_bias_g);
-	r_all2.block(3,0,3,1) = Framej->bias_a+Framej->delta_bias_a - (Framei->bias_a+Framei->delta_bias_a);
-	
-	J_all2.block(0,7+i*15+9,3,3) = -Mat33::Identity();
-	J_all2.block(0,7+(i+1)*15+9,3,3) = Mat33::Identity();
-	J_all2.block(3,7+i*15+12,3,3) = -Mat33::Identity();
-	J_all2.block(3,7+(i+1)*15+12,3,3) = Mat33::Identity();
-	Mat66 Cov_bias = Mat66::Zero();
-	Cov_bias.block(0,0,3,3) = GyrRandomWalkNoise*dt;
-	Cov_bias.block(3,3,3,3) = AccRandomWalkNoise*dt;
-	Mat66 weight_bias = Mat66::Identity()*imu_weight*imu_weight*Cov_bias.inverse();
-// 	weight_bias *= (bei*bei);
-	H += J_all2.transpose()*weight_bias*J_all2;
-	b += J_all2.transpose()*weight_bias*r_all2;
+// 	//bias model
+// 	MatXX J_all2 = MatXX::Zero(6, 7+nFrames*15);
+// 	VecX r_all2 = VecX::Zero(6);
+// 	
+// 	r_all2.block(0,0,3,1) = Framej->bias_g+Framej->delta_bias_g - (Framei->bias_g+Framei->delta_bias_g);
+// 	r_all2.block(3,0,3,1) = Framej->bias_a+Framej->delta_bias_a - (Framei->bias_a+Framei->delta_bias_a);
+// 	
+// 	J_all2.block(0,7+i*15+9,3,3) = -Mat33::Identity();
+// 	J_all2.block(0,7+(i+1)*15+9,3,3) = Mat33::Identity();
+// 	J_all2.block(3,7+i*15+12,3,3) = -Mat33::Identity();
+// 	J_all2.block(3,7+(i+1)*15+12,3,3) = Mat33::Identity();
+// 	Mat66 Cov_bias = Mat66::Zero();
+// 	Cov_bias.block(0,0,3,3) = GyrRandomWalkNoise*dt;
+// 	Cov_bias.block(3,3,3,3) = AccRandomWalkNoise*dt;
+// 	Mat66 weight_bias = Mat66::Identity()*imu_weight*imu_weight*Cov_bias.inverse();
+// // 	weight_bias *= (bei*bei);
+// 	H += J_all2.transpose()*weight_bias*J_all2;
+// 	b += J_all2.transpose()*weight_bias*r_all2;
 // 	LOG(INFO)<<"r_all2: "<<r_all2.transpose();
 // 	LOG(INFO)<<"J_all2.transpose()*weight_bias*J_all2: \n"<<J_all2.transpose()*weight_bias*J_all2;
 	
@@ -1119,6 +1140,22 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	
 	VecX StitchedDelta = getStitchedDeltaF();
 	VecX delta_b = VecX::Zero(CPARS+7+nFrames*17);
+	for(int i=fh->idx-1;i<fh->idx+1;i++){
+	    if(i<0)continue;
+	    double time_start = pic_time_stamp[frames[i]->data->shell->incoming_id];
+	    double time_end = pic_time_stamp[frames[i+1]->data->shell->incoming_id];
+	    double dt = time_end-time_start;
+	    
+	    if(dt>0.5)continue;
+	    if(i==fh->idx-1){
+		delta_b.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+i*8,0,6,1);
+		frames[i]->m_flag = true;
+	    }
+	    if(i==fh->idx){
+	      delta_b.block(CPARS+7+17*(i+1),0,6,1) = StitchedDelta.block(CPARS+(i+1)*8,0,6,1);
+	      frames[i+1]->m_flag = true;
+	    }
+	}
 // 	for(int i=0;i<nFrames;++i){
 // 	    delta_b.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+i*8,0,6,1);
 // 	}
@@ -1709,9 +1746,11 @@ void EnergyFunctional::solveSystemF(int iteration, double lambda, CalibHessian* 
 	VecX StitchedDelta = getStitchedDeltaF();
 	VecX StitchedDelta2 = VecX::Zero(CPARS+7+nFrames*17);
 // 	StitchedDelta2.block(0,0,CPARS,1) = StitchedDelta.block(0,0,CPARS,1);
-// 	for(int i=0;i<nFrames;++i){
-// 	    StitchedDelta2.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+8*i,0,6,1);
-// 	}
+	for(int i=0;i<nFrames;++i){
+	    if(frames[i]->m_flag){
+		StitchedDelta2.block(CPARS+7+17*i,0,6,1) = StitchedDelta.block(CPARS+8*i,0,6,1);
+	    }
+	}
 // 	for(int i=0;i<nFrames;++i){
 // 	    VecX temp = frames[i]->data->get_state();
 // 	    StitchedDelta2.block(CPARS+7+17*i,0,6,1) = temp.block(0,0,6,1);

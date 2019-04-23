@@ -168,7 +168,7 @@ void PangolinDSOViewer::run()
 	{
 		// Clear entire screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-// 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 		if(setting_render_display3D)
 		{
