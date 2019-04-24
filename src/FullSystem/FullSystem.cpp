@@ -418,7 +418,7 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	int tryIterations=0;
 	for(unsigned int i=0;i<lastF_2_fh_tries.size();i++)
 	{
-		if(frameHessians.size()<setting_maxFrames-2){
+		if(frameHessians.size()<setting_maxFrames-1){
 		      if(i>0){
 			initFailed = true;
 			first_track_flag = false;
@@ -1037,7 +1037,11 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	LOG(INFO)<<std::fixed<<std::setprecision(12)<<"run_time: "<<run_time;
 	if(isLost) return;
 	boost::unique_lock<boost::mutex> lock(trackMutex);
-
+	
+	if(T_WD.scale()>2||T_WD.scale()<0.6){
+	    initFailed = true;
+	    first_track_flag = false;
+	}
 
 	// =========================== add into allFrameHistory =========================
 	FrameHessian* fh = new FrameHessian();

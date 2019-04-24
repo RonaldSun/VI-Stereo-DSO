@@ -143,8 +143,8 @@ double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, 
     double res = imu_track_weight*imu_track_weight*res_PVPhi.transpose() * Cov.inverse() * res_PVPhi;
 //     LOG(INFO)<<"res: "<<res<<" PointEnergy: "<<PointEnergy;
 //     LOG(INFO)<<"Cov.inverse(): \n"<<Cov.inverse();
-    double bei = sqrt(PointEnergy/res);
-    bei /= imu_lambda;
+//     double bei = sqrt(PointEnergy/res);
+//     bei /= imu_lambda;
     
     Mat33 J_resPhi_phi_j = IMU_preintegrator.JacobianRInv(res_phi);
     Mat33 J_resV_v_j = R_WB.transpose();
@@ -969,10 +969,10 @@ bool CoarseTracker::trackNewestCoarse(
 	
 	std::vector<double> imu_track_w(coarsestLvl,0);
 	imu_track_w[0] = imu_weight_tracker;
-	imu_track_w[1] = imu_track_w[0]/2;
-	imu_track_w[2] = imu_track_w[1]/2;
+	imu_track_w[1] = imu_track_w[0]/1.2;
+	imu_track_w[2] = imu_track_w[1]/1.5;
 	imu_track_w[3] = imu_track_w[2]/2;
-	imu_track_w[4] = imu_track_w[3]/2;
+	imu_track_w[4] = imu_track_w[3]/3;
 	
 	for(int lvl=coarsestLvl; lvl>=0; lvl--)
 	{

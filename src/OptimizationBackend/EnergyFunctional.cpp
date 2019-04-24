@@ -1044,11 +1044,36 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 // 	    }
 	    Weight = imu_weight*imu_weight*Weight.inverse();
     // 	LOG(INFO)<<"Weight_sqrt: "<<Weight_sqrt.diagonal().transpose();
-
 	    Vec9 b_1 = Vec9::Zero();
 	    b_1.block(0,0,3,1) = res_p2;
 	    b_1.block(3,0,3,1) = res_phi2;
 	    b_1.block(6,0,3,1) = res_v2;
+	    
+// 	    double resF2_All = 0;
+// 	    for(EFPoint* p : frames[i]->points){
+// 	      for(EFResidual* r : p->residualsAll){
+// 		if(r->isLinearized || !r->isActive()) continue;
+// 		if(r->targetIDX == i+1){
+// 		  for(int k=0;k<patternNum;++k){
+// 		    resF2_All += r->J->resF[k]*r->J->resF[k];
+// 		  }
+// 		}
+// 	      }
+// 	    }
+// 	    for(EFPoint* p : frames[i+1]->points){
+// 	      for(EFResidual* r : p->residualsAll){
+// 		if(r->isLinearized || !r->isActive()) continue;
+// 		if(r->targetIDX == i){
+// 		  for(int k=0;k<patternNum;++k){
+// 		    resF2_All += r->J->resF[k]*r->J->resF[k];
+// 		  }
+// 		}
+// 	      }
+// 	    }
+// 	    double E_imu = b_1.transpose()*Weight*b_1;
+// 	    double bei = sqrt(resF2_All/E_imu);
+// 	    bei = bei/imu_lambda;
+// 	    Weight *=(bei*bei);
 	   
 	    Mat44 T_tempj = T_BC.matrix()*T_WD_l.matrix()*worldToCam_j.matrix();
 	    Mat1515 J_relj = Mat1515::Identity();
