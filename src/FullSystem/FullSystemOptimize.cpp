@@ -264,7 +264,14 @@ bool FullSystem::doStepFromBackup(float stepfacC,float stepfacT,float stepfacR,f
 		if(imu_use_flag){
 // 		  T_WD = T_WD*change;
 		  state_twd += stepfacC*step_twd;
+		  if(std::exp(state_twd[6])<0.1||std::exp(state_twd[6])>10){
+		    initFailed = true;
+		    first_track_flag = false;
+		    return false;
+		  }
+// 		  LOG(INFO)<<"state_twd: "<<state_twd.transpose();
 		  T_WD_change  = Sim3::exp(state_twd);
+
 // 		  Sim3 T_WD_temp = T_WD*T_WD_change;
 // 		  double s_temp = T_WD_temp.scale();
 // 		  double s_wd = T_WD.scale();

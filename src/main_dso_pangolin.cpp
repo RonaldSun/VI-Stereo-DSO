@@ -61,6 +61,7 @@ std::string calib = "";
 std::string calib0 = "";
 std::string calib1 = "";
 std::string T_stereo = "";
+std::string imu_info = "";
 std::string pic_timestamp = "";
 std::string pic_timestamp1 = "";
 double rescale = 1;
@@ -334,6 +335,12 @@ void parseArgument(char* arg)
 		return;
 	}
 	
+	if(1==sscanf(arg,"imu_info=%s",buf))
+	{
+		imu_info = buf;
+		return;
+	}
+	
 	if(1==sscanf(arg,"pic_timestamp=%s",buf))
 	{
 		pic_timestamp = buf;
@@ -387,6 +394,19 @@ void parseArgument(char* arg)
 	if(1==sscanf(arg,"imu_weight_tracker=%f",&foption))
 	{
 		imu_weight_tracker = foption;
+		return;
+	}
+	
+	if(1==sscanf(arg,"use_stereo=%d",&option))
+	{
+		if(option==0)
+		{
+			use_stereo = false;
+			printf("NO GUI!\n");
+		}
+		else{
+			use_stereo = true;
+		}
 		return;
 	}
 
@@ -573,6 +593,42 @@ void getTstereo(){
 	T_C0C1 = temp;
 	T_C1C0 = temp.inverse();
 }
+void getIMUinfo(){
+	std::ifstream inf;
+	inf.open(imu_info);
+	std::string sline;
+	int line = 0;
+	Mat33 R;
+	Vec3 t;
+	Vec4 noise;
+	while(line<3&&std::getline(inf,sline)){
+		std::istringstream ss(sline);
+		for(int i=0;i<3;++i){
+		    ss>>R(line,i);
+		}
+		ss>>t(line);
+		++line;
+	}
+	std::getline(inf,sline);
+	++line;
+	while(line<8&&std::getline(inf,sline)){
+		std::istringstream ss(sline);
+		ss>>noise(line-4);
+		++line;
+	}
+	SE3 temp(R,t);
+	T_BC = temp;
+	
+	GyrCov = Mat33::Identity()*noise(0)*noise(0)/0.005;
+	AccCov = Mat33::Identity()*noise(1)*noise(1)/0.005;
+	GyrRandomWalkNoise = Mat33::Identity()*noise(2)*noise(2);
+	AccRandomWalkNoise = Mat33::Identity()*noise(3)*noise(3);
+	
+	LOG(INFO)<<"T_BC: \n"<<T_BC.matrix();
+	LOG(INFO)<<"noise: "<<noise.transpose();
+	inf.close();
+	
+}
 
 void getPicTimestamp(){
 	std::ifstream inf;
@@ -614,17 +670,18 @@ int main( int argc, char** argv )
 
 	if(gt_path.size()>0)getGroundtruth_euroc();
 	if(T_stereo.size()>0)getTstereo();
+	if(imu_info.size()>0)getIMUinfo();
 	
-	Mat33 R_BC;
-	R_BC<<0.0148655429818,-0.999880929698,0.00414029679422,0.999557249008,0.0149672133247,0.025715529948,-0.0257744366974,0.00375618835797,0.999660727178;
-	Vec3 t_BC;
-	t_BC<<-0.0216401454975,-0.064676986768,0.00981073058949;
-	T_BC = SE3(R_BC,t_BC);
+// 	Mat33 R_BC;
+// 	R_BC<<0.0148655429818,-0.999880929698,0.00414029679422,0.999557249008,0.0149672133247,0.025715529948,-0.0257744366974,0.00375618835797,0.999660727178;
+// 	Vec3 t_BC;
+// 	t_BC<<-0.0216401454975,-0.064676986768,0.00981073058949;
+// 	T_BC = SE3(R_BC,t_BC);
 	
-	GyrCov = Mat33::Identity()*1.6968e-04*1.6968e-04/0.005;
-	AccCov = Mat33::Identity()*2.0000e-3*2.0000e-3/0.005;
-	GyrRandomWalkNoise = Mat33::Identity()*1.9393e-05*1.9393e-05;
-	AccRandomWalkNoise = Mat33::Identity()*3.0000e-3*3.0000e-3;
+// 	GyrCov = Mat33::Identity()*1.6968e-04*1.6968e-04/0.005;
+// 	AccCov = Mat33::Identity()*2.0000e-3*2.0000e-3/0.005;
+// 	GyrRandomWalkNoise = Mat33::Identity()*1.9393e-05*1.9393e-05;
+// 	AccRandomWalkNoise = Mat33::Identity()*3.0000e-3*3.0000e-3;
 	
 	G_norm = 9.81;
 	imu_use_flag = true;
@@ -651,13 +708,17 @@ int main( int argc, char** argv )
 
 
 	ImageFolderReader* reader = new ImageFolderReader(source0, calib0, gammaCalib, vignette);
-	ImageFolderReader* reader_right = new ImageFolderReader(source1, calib1, gammaCalib, vignette);
+	ImageFolderReader* reader_right;
+	if(use_stereo)
+	  reader_right= new ImageFolderReader(source1, calib1, gammaCalib, vignette);
+	else
+	  reader_right= new ImageFolderReader(source0, calib0, gammaCalib, vignette);
 	reader->setGlobalCalibration();
 // 	reader_right->setGlobalCalibration();
 	int w_out, h_out;
 	reader_right->getCalibMono(K_right,w_out,h_out);
 	
-// 	LOG(INFO)<<"K_right: \n"<<K_right;
+	LOG(INFO)<<"K_right: \n"<<K_right;
 // 	LOG(INFO)<<"T_C0C1: \n"<<T_C0C1.matrix();
 // 	exit(1);
 
@@ -666,7 +727,6 @@ int main( int argc, char** argv )
 		printf("ERROR: dont't have photometric calibation. Need to use commandline options mode=1 or mode=2 ");
 		exit(1);
 	}
-
 
 
 
@@ -709,7 +769,7 @@ int main( int argc, char** argv )
 
 
 
-
+    
     // to make MacOS happy: run this in dedicated thread -- and use this one to run the GUI.
     std::thread runthread([&]() {
         std::vector<int> idsToPlay;
@@ -730,6 +790,7 @@ int main( int argc, char** argv )
                 timesToPlayAt.push_back(timesToPlayAt.back() +  fabs(tsThis-tsPrev)/playbackSpeed);
             }
         }
+        
         for(int i=lstart;i>= 0 && i< reader_right->getNumImages() && linc*i < linc*lend;i+=linc)
         {
             idsToPlayRight.push_back(i);
@@ -744,7 +805,6 @@ int main( int argc, char** argv )
                 timesToPlayAtRight.push_back(timesToPlayAtRight.back() +  fabs(tsThis-tsPrev)/playbackSpeed);
             }
         }
-
 
         std::vector<ImageAndExposure*> preloadedImages;
 	std::vector<ImageAndExposure*> preloadedImagesRight;
@@ -773,24 +833,27 @@ int main( int argc, char** argv )
                 started = clock();
                 sInitializerOffset = timesToPlayAt[ii];
             }
-
+    
             int i = idsToPlay[ii];
 	    
 	    double time_l = pic_time_stamp[i];
-	    int index;
-	    if(pic_time_stamp_r.size()>0){
-		for(int i=0;i<pic_time_stamp_r.size();++i){
-		    if(pic_time_stamp_r[i]>=time_l||fabs(pic_time_stamp_r[i]-time_l)<0.01){
-			  index = i;
-			  break;					  				
-		    }
-		}
+	    int index=-1;
+	    if(use_stereo){
+	      if(pic_time_stamp_r.size()>0){
+		  for(int i=0;i<pic_time_stamp_r.size();++i){
+		      if(pic_time_stamp_r[i]>=time_l||fabs(pic_time_stamp_r[i]-time_l)<0.01){
+			    index = i;
+			    break;					  				
+		      }
+		  }
+	      }
+	      if(fabs(pic_time_stamp_r[index]-time_l)>0.01){continue;}
 	    }
-	    if(fabs(pic_time_stamp_r[index]-time_l)>0.01){continue;}
 // 	    LOG(INFO)<<"pic_time_stamp_r.size(): "<<pic_time_stamp_r.size()<<" pic_time_stamp.size(): "<<pic_time_stamp.size();
 // 	    LOG(INFO)<<std::fixed<<std::setprecision(9)<<"time_l: "<<time_l<<" time_r: "<<pic_time_stamp_r[index];
 // 	    LOG(INFO)<<"i: "<<i<<" index: "<<index;
 // 	    exit(1);
+
             ImageAndExposure* img;
 	    ImageAndExposure* img_right;
             if(preload){
@@ -800,7 +863,10 @@ int main( int argc, char** argv )
             else{
                 img = reader->getImage(i);
 // 		img_right = reader_right->getImage(i);
-		img_right = reader_right->getImage(index);
+		if(use_stereo)
+		  img_right = reader_right->getImage(index);
+		else
+		  img_right = img;
 	    }
 
 

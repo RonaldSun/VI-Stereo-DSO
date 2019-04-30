@@ -93,6 +93,7 @@ public:
 	Vec5 lastResiduals;
 	Vec3 lastFlowIndicators;
 	double firstCoarseRMSE;
+	int pc_n[PYR_LEVELS];
 private:
 
 
@@ -113,7 +114,7 @@ private:
 	float* pc_v[PYR_LEVELS];
 	float* pc_idepth[PYR_LEVELS];
 	float* pc_color[PYR_LEVELS];
-	int pc_n[PYR_LEVELS];
+	
 
 	// warped buffers
 	float* buf_warped_idepth;

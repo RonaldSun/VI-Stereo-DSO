@@ -95,21 +95,21 @@ bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IO
 	alphaW = 150*150;//*freeDebugParam2*freeDebugParam2;
 	regWeight = 0.8;//*freeDebugParam4;
 	couplingWeight = 1;//*freeDebugParam5;
-	
+
 	if(!snapped)
 	{
 		thisToNext.translation().setZero();
-// 		for(int lvl=0;lvl<pyrLevelsUsed;lvl++)
-// 		{
-// 			int npts = numPoints[lvl];
-// 			Pnt* ptsl = points[lvl];
-// 			for(int i=0;i<npts;i++)
-// 			{
-// 				ptsl[i].iR = 1;
-// 				ptsl[i].idepth_new = 1;
-// 				ptsl[i].lastHessian = 0;
-// 			}
-// 		}
+		for(int lvl=0;lvl<pyrLevelsUsed;lvl++)
+		{
+			int npts = numPoints[lvl];
+			Pnt* ptsl = points[lvl];
+			for(int i=0;i<npts;i++)
+			{
+				ptsl[i].iR = 1;
+				ptsl[i].idepth_new = 1;
+				ptsl[i].lastHessian = 0;
+			}
+		}
 	}
 
 
@@ -269,12 +269,12 @@ bool CoarseInitializer::trackFrame(FrameHessian* newFrameHessian, std::vector<IO
 		snappedAt = frameID;
 
 
+
     debugPlot(0,wraps);
 
 
 
 	return snapped && frameID > snappedAt+5;
-// 	return snapped;
 }
 
 void CoarseInitializer::debugPlot(int lvl, std::vector<IOWrap::Output3DWrapper*> &wraps)
@@ -637,9 +637,9 @@ void CoarseInitializer::optReg(int lvl)
 	Pnt* ptsl = points[lvl];
 	if(!snapped)
 	{
-// 		for(int i=0;i<npts;i++)
-// 			ptsl[i].iR = 1;
-// 		return;
+		for(int i=0;i<npts;i++)
+			ptsl[i].iR = 1;
+		return;
 	}
 
 

@@ -164,6 +164,8 @@ public:
 	
 	void savetrajectory(const Sophus::Matrix4d &T);
 	void savetrajectory_tum(const SE3 &T, double time);
+	
+	void initFirstFrame_imu(FrameHessian* fh);
 
 private:
 

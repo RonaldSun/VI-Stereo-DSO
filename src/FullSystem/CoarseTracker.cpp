@@ -659,7 +659,7 @@ void CoarseTracker::makeCoarseDepthL0(std::vector<FrameHessian*> frameHessians, 
 
 		pc_n[lvl] = lpc_n;
 	}
-
+	
 }
 
 
@@ -766,7 +766,7 @@ Vec6 CoarseTracker::calcRes(int lvl, const SE3 &refToNew, AffLight aff_g2l, floa
 	float* lpc_v = pc_v[lvl];
 	float* lpc_idepth = pc_idepth[lvl];
 	float* lpc_color = pc_color[lvl];
-
+	
 	for(int i=0;i<nl;i++)
 	{
 		float id = lpc_idepth[i];
@@ -879,6 +879,9 @@ Vec6 CoarseTracker::calcRes(int lvl, const SE3 &refToNew, AffLight aff_g2l, floa
 	rs[4] = sumSquaredShiftRT/(sumSquaredShiftNum+0.1);
 	rs[5] = numSaturated / (float)numTermsInE;
 
+// 	LOG(INFO)<<"E: "<<E;
+// 	LOG(INFO)<<"numTermsInE: "<<numTermsInE;
+// 	exit(1);
 	return rs;
 }
 

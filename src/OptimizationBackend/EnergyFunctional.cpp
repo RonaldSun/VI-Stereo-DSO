@@ -1327,7 +1327,10 @@ void EnergyFunctional::marginalizeFrame_imu(EFFrame* fh){
 	HM_bias = 0.5*(HMScaled.topLeftCorner(ndim,ndim) + HMScaled.topLeftCorner(ndim,ndim).transpose());
 	bM_bias = bMScaled.head(ndim);
 	}
-	if(M_num2>25){
+	if(use_stereo&&M_num2>25){
+	    use_Dmargin = false;
+	}
+	if(use_stereo==false&&M_num2>25){
 	    use_Dmargin = false;
 	}
 // 	if(s_now>s_middle*d_now){
@@ -1448,7 +1451,8 @@ void EnergyFunctional::marginalizeFrame(EFFrame* fh)
 
 	assert((int)fh->points.size()==0);
 	
-	marginalizeFrame_imu(fh);
+	if(imu_use_flag)
+	  marginalizeFrame_imu(fh);
 	
 	int ndim = nFrames*8+CPARS-8;// new dimension
 	int odim = nFrames*8+CPARS;// old dimension

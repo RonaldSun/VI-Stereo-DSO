@@ -256,6 +256,7 @@ extern int M_num;
 extern int M_num2;
 extern double setting_margWeightFac_imu;
 extern bool first_track_flag;
+extern bool use_stereo;
 
 
 //#define patternNum staticPatternNum[setting_pattern]

@@ -300,7 +300,7 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	AffLight aff_last_2_l = AffLight(0,0);
 
 	std::vector<SE3,Eigen::aligned_allocator<SE3>> lastF_2_fh_tries;
-	if(allFrameHistory.size() == 2||first_track_flag==false/*frameHessians.size()==1*/){
+	if(use_stereo&&(allFrameHistory.size() == 2||first_track_flag==false)/*frameHessians.size()==1*/){
 // 		initializeFromInitializer(fh);
 		first_track_flag = true;
 		lastF_2_fh_tries.push_back(SE3(Eigen::Matrix<double, 3, 3>::Identity(), Eigen::Matrix<double,3,1>::Zero() ));
@@ -338,6 +338,9 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 		coarseTracker->makeK(&Hcalib);
 		coarseTracker->setCTRefForFirstFrame(frameHessians);
 		lastF = coarseTracker->lastRef;
+	}
+	else if(allFrameHistory.size() == 2){
+		for(unsigned int i=0;i<lastF_2_fh_tries.size();i++) lastF_2_fh_tries.push_back(SE3());
 	}
 	else
 	{
@@ -402,7 +405,6 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 		}
 	}
 
-
 	Vec3 flowVecs = Vec3(100,100,100);
 	SE3 lastF_2_fh = SE3();
 	AffLight aff_g2l = AffLight(0,0);
@@ -418,7 +420,7 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 	int tryIterations=0;
 	for(unsigned int i=0;i<lastF_2_fh_tries.size();i++)
 	{
-		if(frameHessians.size()<setting_maxFrames-1){
+		if(use_stereo&&frameHessians.size()<setting_maxFrames-1){
 		      if(i>0){
 			initFailed = true;
 			first_track_flag = false;
@@ -427,8 +429,6 @@ Vec4 FullSystem::trackNewCoarse(FrameHessian* fh)
 		  }
 		AffLight aff_g2l_this = aff_last_2_l;
 		SE3 lastF_2_fh_this = lastF_2_fh_tries[i];
-// 		LOG(INFO)<<"lastF_2_fh_this: "<<lastF_2_fh_this.translation().transpose();
-// 		LOG(INFO)<<"aff_g2l_this: "<<aff_g2l_this.vec().transpose();
 		bool trackingIsGood = coarseTracker->trackNewestCoarse(
 				fh, lastF_2_fh_this, aff_g2l_this,
 				pyrLevelsUsed-1,
@@ -1038,11 +1038,22 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	if(isLost) return;
 	boost::unique_lock<boost::mutex> lock(trackMutex);
 	
-	if(T_WD.scale()>2||T_WD.scale()<0.6){
+	if(use_stereo&&(T_WD.scale()>2||T_WD.scale()<0.6)){
 	    initFailed = true;
 	    first_track_flag = false;
 	}
-
+// 	LOG(INFO)<<"allKeyFramesHistory.size(): "<<allKeyFramesHistory.size();
+	if(use_stereo==false&&(T_WD.scale()<0.1||T_WD.scale()>10)){
+	    initFailed = true;
+	    first_track_flag = false;
+	}
+// 	if(use_stereo==false){
+// 	    if(allKeyFramesHistory.size()<40){
+// 		imu_use_flag = false;
+// 	    }else{
+// 		imu_use_flag = true;
+// 	    }
+// 	}
 	// =========================== add into allFrameHistory =========================
 	FrameHessian* fh = new FrameHessian();
 	FrameHessian* fh_right = new FrameHessian();
@@ -1075,103 +1086,27 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 	if(!initialized)
 	{
 		// use initializer!
-		if(coarseInitializer->frameID<0)	// first frame set. fh is kept by coarseInitializer.
+		if(coarseInitializer->frameID<0&&use_stereo)	// first frame set. fh is kept by coarseInitializer.
 		{
 			coarseInitializer->setFirstStereo(&Hcalib, fh,fh_right);
 // 			coarseInitializer->setFirst(&Hcalib, fh);
-			int index;
-			if(imu_time_stamp.size()>0){
-			    for(int i=0;i<imu_time_stamp.size();++i){
-				if(imu_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(imu_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
-				      index = i;
-				      break;					  				
-				}
-			    }
-			}
-			int index2;
-			if(gt_time_stamp.size()>0){
-			    for(int i=0;i<gt_time_stamp.size();++i){
-				if(gt_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
-				      index2 = i;
-				      break;					  				
-				}
-			    }
-			}
-			LOG(INFO)<<"index2: "<<index2;
-			Vec3 g_b = Vec3::Zero();
-			Vec3 g_w;
-			g_w<<0,0,-1;
-			for(int j=0;j<40;j++){
-			    g_b = g_b + m_acc[index-j];
-			}
-			double norm = g_b.norm();
-			g_b = -g_b/norm;
-// 			LOG(INFO)<<"g_b: "<<g_b.transpose();
-// 			g_b = gt_pose[index2].rotationMatrix().transpose()*g_w;
-// 			LOG(INFO)<<"g_b: "<<g_b.transpose();
-			Vec3 g_c = T_BC.inverse().rotationMatrix()*g_b;
-	
-			norm = g_c.norm();
-			g_c = g_c/norm;
-			
-			
-			Vec3 n = Sophus::SO3::hat(g_c)*g_w;
-// 			LOG(INFO)<<"n: "<<n;
-
-			norm = n.norm();
-			n = n/norm;
-			double sin_theta = norm;
-			double cos_theta = g_c.dot(g_w);
-
-			Mat33 R_wc = cos_theta*Mat33::Identity()+(1-cos_theta)*n*n.transpose()+sin_theta*Sophus::SO3::hat(n);
-			
-// 			LOG(INFO)<<"R_wc * g_c: "<<(R_wc * g_c).transpose();
-// 			LOG(INFO)<<"R_wc: \n"<<R_wc;
-			SE3 T_wc(R_wc,Vec3::Zero());
-			
-			T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
-// 			LOG(INFO)<<"gt_pose.translation: "<<gt_pose[index2].translation().transpose();
-// 			SE3 T_wc(R_wc,(gt_pose[index2]*T_BC).translation());
-// 			SE3 T_wc = gt_pose[index2]*T_BC;
-// 			LOG(INFO)<<"T_wc.rotationMatrix: \n"<<T_wc.rotationMatrix();
-// 			LOG(INFO)<<"SO3(T_wc.rotationMatrix()).log().transpose(): "<<SO3(T_wc.rotationMatrix()).log().transpose();
-// 			LOG(INFO)<<"T_wc.rotationMatrix() * g_c: "<<(T_wc.rotationMatrix() * g_c).transpose();
-			shell->camToWorld = T_wc;
-			fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),shell->aff_g2l);
-			
-			
-			Mat33 R_wd = Mat33::Identity();
-		
-			T_WD = Sim3(RxSO3(1,R_wd),Vec3::Zero());
-			T_WD_l = T_WD;
-			T_WD_l_half = T_WD;
-			state_twd.setZero();
+			initFirstFrame_imu(fh);
 			
 			initializeFromInitializer(fh);
 			initialized = true;
 			M_num = 0;
 			M_num2 = 0;
-// 			LOG(INFO)<<std::fixed<<std::setprecision(16)<<"run_time: "<<run_time;
-// 			LOG(INFO)<<"pose now: "<<(fh->shell->camToWorld*T_BC.inverse()).translation().transpose();
-// 			fh->velocity = gt_velocity[index2];
-// 			fh->shell->velocity = fh->velocity;
-// 			fh->bias_a = gt_bias_a[index2];
-// 			fh->bias_g = gt_bias_g[index2];
+
 		}
-// 		else if(run_time - pic_time_stamp[coarseInitializer->firstFrame->shell->incoming_id]>0.5){
-// 			initFailed=true;
-// 		}
+		else if(coarseInitializer->frameID<0){
+			coarseInitializer->setFirst(&Hcalib, fh);
+			initFirstFrame_imu(fh);
+		}
 		else if(coarseInitializer->trackFrame(fh, outputWrapper))	// if SNAPPED
 		{
 			initializeFromInitializer(fh);
-			initialized=true;
-// 			trackNewCoarse(fh);
 			lock.unlock();
 			deliverTrackedFrame(fh, fh_right, true);
-/*			
-			Vec4 q4 = rotationToQuaternion(allFrameHistory[0]->camToWorld.rotationMatrix());
-			LOG(INFO)<<"q4: "<<q4.transpose();*/
-// 			exit(1);
 			
 		}
 		else
@@ -1180,12 +1115,6 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 			fh->shell->poseValid = false;
 			delete fh;
 		}
-// 		Sophus::Matrix4d T = shell->camToWorld.matrix();
-// 		std::ofstream f1;
-// 		std::string dsoposefile = "./data/"+savefile_tail+".txt";
-// 		f1.open(dsoposefile,std::ios::out);
-// 		f1.close();
-// 		savetrajectory(T);
 		std::ofstream f1;
 		std::string dsoposefile = "./data/"+savefile_tail+".txt";
 		f1.open(dsoposefile,std::ios::out);
@@ -1279,6 +1208,62 @@ void FullSystem::addActiveFrame( ImageAndExposure* image, ImageAndExposure* imag
 		
 		return;
 	}
+}
+void FullSystem::initFirstFrame_imu(FrameHessian* fh){
+	int index;
+	if(imu_time_stamp.size()>0){
+	    for(int i=0;i<imu_time_stamp.size();++i){
+		if(imu_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(imu_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
+		      index = i;
+		      break;					  				
+		}
+	    }
+	}
+	int index2;
+	if(gt_time_stamp.size()>0){
+	    for(int i=0;i<gt_time_stamp.size();++i){
+		if(gt_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
+		      index2 = i;
+		      break;					  				
+		}
+	    }
+	}
+	Vec3 g_b = Vec3::Zero();
+	Vec3 g_w;
+	g_w<<0,0,-1;
+	for(int j=0;j<40;j++){
+	    g_b = g_b + m_acc[index-j];
+	}
+	double norm = g_b.norm();
+	g_b = -g_b/norm;
+	Vec3 g_c = T_BC.inverse().rotationMatrix()*g_b;
+
+	norm = g_c.norm();
+	g_c = g_c/norm;
+	Vec3 n = Sophus::SO3::hat(g_c)*g_w;
+
+	norm = n.norm();
+	n = n/norm;
+	double sin_theta = norm;
+	double cos_theta = g_c.dot(g_w);
+
+	Mat33 R_wc = cos_theta*Mat33::Identity()+(1-cos_theta)*n*n.transpose()+sin_theta*Sophus::SO3::hat(n);
+
+	SE3 T_wc(R_wc,Vec3::Zero());
+	
+	T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
+	
+// 	LOG(INFO)<<"first pose: \n"<<T_wc.matrix();
+
+	fh->shell->camToWorld = T_wc;
+	fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),fh->shell->aff_g2l);
+
+	Mat33 R_wd = Mat33::Identity();
+
+	T_WD = Sim3(RxSO3(1,R_wd),Vec3::Zero());
+	T_WD_l = T_WD;
+	T_WD_l_half = T_WD;
+	state_twd.setZero();
 }
 void FullSystem::savetrajectory(const Sophus::Matrix4d &T){
 	std::ofstream f1;
@@ -1544,6 +1529,7 @@ void FullSystem::makeKeyFrame( FrameHessian* fh, FrameHessian* fh_right)
 	// =========================== Figure Out if INITIALIZATION FAILED =========================
 	if(allKeyFramesHistory.size() <= 4)
 	{
+// 		LOG(INFO)<<"allKeyFramesHistory.size(): "<<allKeyFramesHistory.size()<<" rmse: "<<rmse;
 		if(allKeyFramesHistory.size()==2 && rmse > 20*benchmark_initializerSlackFactor)
 		{
 			printf("I THINK INITIALIZATINO FAILED! Resetting.\n");
@@ -1653,7 +1639,7 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 	allKeyFramesHistory.push_back(firstFrame->shell);
 	ef->insertFrame(firstFrame, &Hcalib);
 	setPrecalcValues();
-	
+
 	FrameHessian* firstFrameRight = coarseInitializer->firstFrame_right;
 
 	//int numPointsTotal = makePixelStatus(firstFrame->dI, selectionMap, wG[0], hG[0], setting_desiredDensity);
@@ -1678,82 +1664,105 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
     if(!setting_debugout_runquiet)
         printf("Initialization: keep %.1f%% (need %d, have %d)!\n", 100*keepPercentage,
                 (int)(setting_desiredPointDensity), coarseInitializer->numPoints[0] );
+	if(use_stereo){
+	    for(int i=0;i<coarseInitializer->numPoints[0];i++)
+	    {
+		    if(rand()/(float)RAND_MAX > keepPercentage) continue;
 
-	for(int i=0;i<coarseInitializer->numPoints[0];i++)
-	{
-		if(rand()/(float)RAND_MAX > keepPercentage) continue;
+		    Pnt* point = coarseInitializer->points[0]+i;
+		    ImmaturePoint* pt = new ImmaturePoint(point->u+0.5f,point->v+0.5f,firstFrame,point->my_type, &Hcalib);
+		    
+		    pt->u_stereo = pt->u;
+		    pt->v_stereo = pt->v;
+		    pt->idepth_min_stereo = 0;
+		    pt->idepth_max_stereo = NAN;
 
-		Pnt* point = coarseInitializer->points[0]+i;
-		ImmaturePoint* pt = new ImmaturePoint(point->u+0.5f,point->v+0.5f,firstFrame,point->my_type, &Hcalib);
-		
-		pt->u_stereo = pt->u;
-		pt->v_stereo = pt->v;
-		pt->idepth_min_stereo = 0;
-		pt->idepth_max_stereo = NAN;
+		    pt->traceStereo(firstFrameRight, &Hcalib, 1);
 
-		pt->traceStereo(firstFrameRight, &Hcalib, 1);
+		    pt->idepth_min = pt->idepth_min_stereo;
+		    pt->idepth_max = pt->idepth_max_stereo;
+		    idepthStereo = pt->idepth_stereo;
+		    
+		    double d_mid = 0.5*(1/pt->idepth_min+1/pt->idepth_max);
+		    if(!std::isfinite(pt->energyTH) || !std::isfinite(pt->idepth_min) || !std::isfinite(pt->idepth_max)
+				    /*||d_mid<0||d_mid>100*/|| pt->idepth_min < 0 || pt->idepth_max < 0)
+		    {
+			delete pt;
+			continue;
 
-		pt->idepth_min = pt->idepth_min_stereo;
-		pt->idepth_max = pt->idepth_max_stereo;
-		idepthStereo = pt->idepth_stereo;
-		
-		double d_mid = 0.5*(1/pt->idepth_min+1/pt->idepth_max);
-		if(!std::isfinite(pt->energyTH) || !std::isfinite(pt->idepth_min) || !std::isfinite(pt->idepth_max)
-				/*||d_mid<0||d_mid>100*/|| pt->idepth_min < 0 || pt->idepth_max < 0)
-		{
+		    }
+		    PointHessian* ph = new PointHessian(pt, &Hcalib);
 		    delete pt;
-		    continue;
+		    if(!std::isfinite(ph->energyTH)) {delete ph; continue;}
+		    
+		    ph->setIdepthScaled(idepthStereo);
+		    ph->setIdepthZero(idepthStereo);
+		    ph->hasDepthPrior=true;
+		    ph->setPointStatus(PointHessian::ACTIVE);
 
-		}
-		PointHessian* ph = new PointHessian(pt, &Hcalib);
-		delete pt;
-		if(!std::isfinite(ph->energyTH)) {delete ph; continue;}
-		
-		ph->setIdepthScaled(idepthStereo);
-		ph->setIdepthZero(idepthStereo);
-		ph->hasDepthPrior=true;
-		ph->setPointStatus(PointHessian::ACTIVE);
+    // 		ph->setIdepthScaled(point->iR*rescaleFactor);
+    // 		ph->setIdepthZero(ph->idepth);
+    // 		ph->hasDepthPrior=true;
+    // 		ph->setPointStatus(PointHessian::ACTIVE);
 
-// 		ph->setIdepthScaled(point->iR*rescaleFactor);
-// 		ph->setIdepthZero(ph->idepth);
-// 		ph->hasDepthPrior=true;
-// 		ph->setPointStatus(PointHessian::ACTIVE);
-
-		firstFrame->pointHessians.push_back(ph);
-		ef->insertPoint(ph);
-		PointFrameResidual* r = new PointFrameResidual(ph, ph->host, ph->host->frame_right);
-		r->state_NewEnergy = r->state_energy = 0;
-		r->state_NewState = ResState::OUTLIER;
-		r->setState(ResState::IN);
-		r->stereoResidualFlag = true;
-		ph->residuals.push_back(r);
-		ef->insertResidual(r);
-	  
-	  
-	  
-// 		if(rand()/(float)RAND_MAX > keepPercentage) continue;
-// 
-// 		Pnt* point = coarseInitializer->points[0]+i;
-// 		ImmaturePoint* pt = new ImmaturePoint(point->u+0.5f,point->v+0.5f,firstFrame,point->my_type, &Hcalib);
-// 
-// 		if(!std::isfinite(pt->energyTH)) { delete pt; continue; }
-// 
-// 
-// 		pt->idepth_max=pt->idepth_min=1;
-// 		PointHessian* ph = new PointHessian(pt, &Hcalib);
-// 		delete pt;
-// 		if(!std::isfinite(ph->energyTH)) {delete ph; continue;}
-// 
-// 		ph->setIdepthScaled(point->iR*rescaleFactor);
-// 		ph->setIdepthZero(ph->idepth);
-// 		ph->hasDepthPrior=true;
-// 		ph->setPointStatus(PointHessian::ACTIVE);
-// 
-// 		firstFrame->pointHessians.push_back(ph);
-// 		ef->insertPoint(ph);
+		    firstFrame->pointHessians.push_back(ph);
+		    ef->insertPoint(ph);
+		    PointFrameResidual* r = new PointFrameResidual(ph, ph->host, ph->host->frame_right);
+		    r->state_NewEnergy = r->state_energy = 0;
+		    r->state_NewState = ResState::OUTLIER;
+		    r->setState(ResState::IN);
+		    r->stereoResidualFlag = true;
+		    ph->residuals.push_back(r);
+		    ef->insertResidual(r);
+	      
+	      
+	      
+    // 		if(rand()/(float)RAND_MAX > keepPercentage) continue;
+    // 
+    // 		Pnt* point = coarseInitializer->points[0]+i;
+    // 		ImmaturePoint* pt = new ImmaturePoint(point->u+0.5f,point->v+0.5f,firstFrame,point->my_type, &Hcalib);
+    // 
+    // 		if(!std::isfinite(pt->energyTH)) { delete pt; continue; }
+    // 
+    // 
+    // 		pt->idepth_max=pt->idepth_min=1;
+    // 		PointHessian* ph = new PointHessian(pt, &Hcalib);
+    // 		delete pt;
+    // 		if(!std::isfinite(ph->energyTH)) {delete ph; continue;}
+    // 
+    // 		ph->setIdepthScaled(point->iR*rescaleFactor);
+    // 		ph->setIdepthZero(ph->idepth);
+    // 		ph->hasDepthPrior=true;
+    // 		ph->setPointStatus(PointHessian::ACTIVE);
+    // 
+    // 		firstFrame->pointHessians.push_back(ph);
+    // 		ef->insertPoint(ph);
+	    }
 	}
-
-
+	else{
+	    for(int i=0;i<coarseInitializer->numPoints[0];i++){
+		if(rand()/(float)RAND_MAX > keepPercentage) continue;
+    
+    		Pnt* point = coarseInitializer->points[0]+i;
+    		ImmaturePoint* pt = new ImmaturePoint(point->u+0.5f,point->v+0.5f,firstFrame,point->my_type, &Hcalib);
+    
+    		if(!std::isfinite(pt->energyTH)) { delete pt; continue; }
+    
+    
+    		pt->idepth_max=pt->idepth_min=1;
+    		PointHessian* ph = new PointHessian(pt, &Hcalib);
+    		delete pt;
+    		if(!std::isfinite(ph->energyTH)) {delete ph; continue;}
+    
+    		ph->setIdepthScaled(point->iR*rescaleFactor);
+    		ph->setIdepthZero(ph->idepth);
+    		ph->hasDepthPrior=true;
+    		ph->setPointStatus(PointHessian::ACTIVE);
+    
+    		firstFrame->pointHessians.push_back(ph);
+    		ef->insertPoint(ph);
+	    }
+	}
 
 	SE3 firstToNew = coarseInitializer->thisToNext;
 	firstToNew.translation() /= rescaleFactor;
@@ -1767,16 +1776,19 @@ void FullSystem::initializeFromInitializer(FrameHessian* newFrame)
 // 		firstFrame->setEvalPT_scaled(firstFrame->shell->camToWorld.inverse(),firstFrame->shell->aff_g2l);
 		firstFrame->shell->trackingRef=0;
 		firstFrame->shell->camToTrackingRef = SE3();
+// 		LOG(INFO)<<"firstFrame pose: \n"<<firstFrame->shell->camToWorld.matrix();
 
 		newFrame->shell->camToWorld = firstFrame->shell->camToWorld*firstToNew.inverse();
 		newFrame->shell->aff_g2l = AffLight(0,0);
 		newFrame->setEvalPT_scaled(newFrame->shell->camToWorld.inverse(),newFrame->shell->aff_g2l);
 		newFrame->shell->trackingRef = firstFrame->shell;
 		newFrame->shell->camToTrackingRef = firstToNew.inverse();
+		
+// 		LOG(INFO)<<"newFrame pose: \n"<<newFrame->shell->camToWorld.matrix();
 
 	}
 
-// 	initialized=true;
+	initialized=true;
 	printf("INITIALIZE FROM INITIALIZER (%d pts)!\n", (int)firstFrame->pointHessians.size());
 // 	if((int)firstFrame->pointHessians.size()<600)initFailed=true;
 }

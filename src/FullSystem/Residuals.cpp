@@ -415,6 +415,7 @@ double PointFrameResidual::linearizeStereo(CalibHessian* HCalib)
 
 	float wJI2_sum = 0;
 	float lambda = stereo_weight;
+	if(use_stereo==false)lambda = 0;
 	for(int idx=0;idx<patternNum;idx++)
 	{
 		float Ku, Kv;

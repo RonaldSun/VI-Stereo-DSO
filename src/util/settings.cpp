@@ -176,7 +176,7 @@ int benchmarkSetting_width = 0;
 int benchmarkSetting_height = 0;
 float benchmark_varNoise = 0;
 float benchmark_varBlurNoise = 0;
-float benchmark_initializerSlackFactor = 3;
+float benchmark_initializerSlackFactor = 1;
 int benchmark_noiseGridsize = 3;
 
 
@@ -260,6 +260,8 @@ int M_num=0;
 int M_num2=0;
 double setting_margWeightFac_imu = 1;
 bool first_track_flag = false;
+bool use_stereo = true;
+
 
 void handleKey(char k)
 {
