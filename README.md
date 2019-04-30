@@ -12,23 +12,32 @@ Please follow https://github.com/JakobEngel/dso.
 
 ## 2. Usage
 1. Modify the bash file
+
 2. For stereo:
+
+    ```
     bash ./run.bash
+    ```
+
 3. For mono:
+
+    ```
     bash ./run_mono.bash
+    ```
 
 - T_stereo file: 
 
+```
     transform matrix from right camera to left camera (4x4).
-
+```
 - imu_info file: 
-
+```
     transform matrix from left camera to imu (4x4).
     gyroscope noise density [ rad / s / sqrt(Hz) ] ( gyro "white noise" )
     accelerometer noise density [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
     gyroscope random walk [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
     accelerometer random walk [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
-
+```
 ## Experiments
 
 - 20190424
