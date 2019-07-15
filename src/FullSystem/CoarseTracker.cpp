@@ -106,15 +106,15 @@ double CoarseTracker::calcIMUResAndGS(Mat66 &H_out, Vec6 &b_out, SE3 &refToNew, 
 // 		 (IMU_preintegrator.getDeltaV()+IMU_preintegrator.getJVBiasa()*lastRef->delta_bias_a+IMU_preintegrator.getJVBiasg()*lastRef->delta_bias_g);
 // 	LOG(INFO)<<"res_v: "<<res_v.transpose();
 // 	LOG(INFO)<<std::fixed<<std::setprecision(14)<<"newFrame time: "<<pic_time_stamp[newFrame->shell->incoming_id];
-	int index2;
-	if(gt_time_stamp.size()>0){
-	    for(int i=0;i<gt_time_stamp.size();++i){
-		if(gt_time_stamp[i]>=pic_time_stamp[newFrame->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[newFrame->shell->incoming_id])<0.001){
-		      index2 = i;
-		      break;					  				
-		}
-	    }
-	}
+// 	int index2;
+// 	if(gt_time_stamp.size()>0){
+// 	    for(int i=0;i<gt_time_stamp.size();++i){
+// 		if(gt_time_stamp[i]>=pic_time_stamp[newFrame->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[newFrame->shell->incoming_id])<0.001){
+// 		      index2 = i;
+// 		      break;					  				
+// 		}
+// 	    }
+// 	}
 // 	newFrame->velocity = gt_velocity[index2];
 // 	LOG(INFO)<<"newFrame->velocity: "<<newFrame->velocity.transpose();
 	newFrame->shell->velocity = newFrame->velocity;

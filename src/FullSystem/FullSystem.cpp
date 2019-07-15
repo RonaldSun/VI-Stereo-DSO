@@ -1219,7 +1219,7 @@ void FullSystem::initFirstFrame_imu(FrameHessian* fh){
 		}
 	    }
 	}
-	int index2;
+	int index2 = 0;
 	if(gt_time_stamp.size()>0){
 	    for(int i=0;i<gt_time_stamp.size();++i){
 		if(gt_time_stamp[i]>=pic_time_stamp[fh->shell->incoming_id]||fabs(gt_time_stamp[i]-pic_time_stamp[fh->shell->incoming_id])<0.001){
@@ -1250,8 +1250,10 @@ void FullSystem::initFirstFrame_imu(FrameHessian* fh){
 	Mat33 R_wc = cos_theta*Mat33::Identity()+(1-cos_theta)*n*n.transpose()+sin_theta*Sophus::SO3::hat(n);
 
 	SE3 T_wc(R_wc,Vec3::Zero());
-	
-	T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
+	if(gt_path.size() > 0)
+        T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
+    else
+        T_WR_align = SE3();
 	
 // 	LOG(INFO)<<"first pose: \n"<<T_wc.matrix();
 
@@ -1290,7 +1292,7 @@ void FullSystem::savetrajectory_tum(const SE3 &T, double time){
 	f1.close();
 	
 	int index2=0;
-	if(gt_time_stamp.size()>0){
+	if(gt_path.size()>0 && gt_time_stamp.size()>0){
 	    for(int i=0;i<gt_time_stamp.size();++i){
 		if(gt_time_stamp[i]>=time||fabs(gt_time_stamp[i]-time)<0.001){
 		      index2 = i;
@@ -1298,7 +1300,7 @@ void FullSystem::savetrajectory_tum(const SE3 &T, double time){
 		}
 	    }
 	}
-	if(fabs(gt_time_stamp[index2]-time)<0.001){
+	if(gt_path.size()>0 && fabs(gt_time_stamp[index2]-time)<0.001){
 	    std::ofstream f2;
 	    std::string gtfile = "./data/"+savefile_tail+"_gt.txt";
 	    f2.open(gtfile,std::ios::out|std::ios::app);

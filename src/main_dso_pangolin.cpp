@@ -500,6 +500,8 @@ Eigen::Matrix3d quaternionToRotation(const Eigen::Vector4d& q) {
 
 void getGroundtruth_euroc(){
 	std::ifstream inf;
+    if(gt_path.size() == 0)
+        return
 	inf.open(gt_path);
 	std::string sline;
 	std::getline(inf,sline);
