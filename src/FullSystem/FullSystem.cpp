@@ -1251,12 +1251,11 @@ void FullSystem::initFirstFrame_imu(FrameHessian* fh){
 
 	SE3 T_wc(R_wc,Vec3::Zero());
 	if(gt_path.size() > 0)
-        T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
-    else
-        T_WR_align = SE3();
+	    T_WR_align = T_wc * T_BC.inverse()*gt_pose[index2].inverse();
+	else
+	    T_WR_align = SE3();
 	
 // 	LOG(INFO)<<"first pose: \n"<<T_wc.matrix();
-
 	fh->shell->camToWorld = T_wc;
 	fh->setEvalPT_scaled(fh->shell->camToWorld.inverse(),fh->shell->aff_g2l);
 

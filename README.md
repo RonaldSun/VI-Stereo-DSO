@@ -36,7 +36,7 @@ Please follow https://github.com/JakobEngel/dso.
     gyroscope noise density [ rad / s / sqrt(Hz) ] ( gyro "white noise" )
     accelerometer noise density [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
     gyroscope random walk [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
-    accelerometer random walk [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
+    accelerometer random walk [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion ) 
 ```
 ## Experiments
 
@@ -83,3 +83,6 @@ EuRoC MH01:
 
 green line: groundtruth, redline: VI-Stereo-DSO
 
+## P.S.
+
+This project aims at verifying the location performance of VI-Stero-DSO. The computational efficiency is to be improved. Actually in current code, many preintergration operations are redundant and can be simplified.
